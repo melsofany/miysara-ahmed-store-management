@@ -7,9 +7,33 @@ __v0_jsx-dev-runtime.ts
 .vercel/
 
 # Environment variables
-.env*.local
+.env.local
+.env.development.local
+.env.production.local
+.env.test.local
 
-# Common ignores
+# Dependencies
 node_modules
-.next/
+pnpm-lock.yaml
+
+# Build output
+dist
+build
+.turbo
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
