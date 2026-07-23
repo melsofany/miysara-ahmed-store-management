@@ -12,6 +12,7 @@ function emit() {
   listeners.forEach((l) => l([...current]));
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function toast(message: string, type: Toast['type'] = 'success') {
   const id = `t${++toastId}`;
   current = [...current, { id, message, type }];
