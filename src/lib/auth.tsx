@@ -105,6 +105,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signUp(email: string, password: string, fullName: string) {
+    // Fetch the company ID dynamically instead of hardcoding it
+    const { data: company } = await supabase
+      .from('companies')
+      .select('id')
+      .limit(1)
+      .maybeSingle();
+    const companyId = company?.id ?? null;
+
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) return { error: error.message };
     if (data.user) {
@@ -113,7 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email,
         full_name: fullName,
         role_id: null,
-        company_id: '00000000-0000-0000-0000-000000000001',
+        company_id: companyId,
         can_view_cost: false,
       });
       if (profErr) return { error: profErr.message };
