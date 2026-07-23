@@ -185,7 +185,7 @@ export function ProductsPage() {
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-semibold text-slate-700">{v.barcode || v.sku || 'بدون كود'}</span>
                           <span className="text-xs text-slate-400">
-                            {v.size_id && useSizeName(v.size_id, cat)} {v.color_id && `· ${useColorName(v.color_id, cat)}`}
+                            {v.size_id && getSizeName(v.size_id, cat)} {v.color_id && `· ${getColorName(v.color_id, cat)}`}
                           </span>
                         </div>
                         <div className="text-left">
@@ -228,10 +228,10 @@ export function ProductsPage() {
   );
 }
 
-function useSizeName(id: string, cat: ReturnType<typeof useCatalog>): string {
+function getSizeName(id: string, cat: ReturnType<typeof useCatalog>): string {
   return cat.sizes.find((s) => s.id === id)?.name_ar ?? cat.sizes.find((s) => s.id === id)?.name ?? '—';
 }
-function useColorName(id: string, cat: ReturnType<typeof useCatalog>): string {
+function getColorName(id: string, cat: ReturnType<typeof useCatalog>): string {
   return cat.colors.find((c) => c.id === id)?.name_ar ?? cat.colors.find((c) => c.id === id)?.name ?? '—';
 }
 
