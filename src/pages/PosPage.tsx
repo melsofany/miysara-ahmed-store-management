@@ -362,7 +362,8 @@ export function PosPage() {
     if (activeShift) {
       const newCashSales = method === 'cash' ? Number(activeShift.cash_sales) + total : Number(activeShift.cash_sales);
       const newCardSales = method === 'card' ? Number(activeShift.card_sales) + total : Number(activeShift.card_sales);
-      const newEPaySales = method === 'e_wallet' ? Number(activeShift.e_payment_sales) + total : Number(activeShift.e_payment_sales);
+      // bank transfers (تحويل) are tracked alongside e-wallet as electronic non-cash payments
+      const newEPaySales = (method === 'e_wallet' || method === 'bank') ? Number(activeShift.e_payment_sales) + total : Number(activeShift.e_payment_sales);
       const newExpectedCash = Number(activeShift.opening_cash) + newCashSales - Number(activeShift.cash_refunds) - Number(activeShift.cash_expenses);
       const updates: Partial<CashShift> = {
         cash_sales: newCashSales,
