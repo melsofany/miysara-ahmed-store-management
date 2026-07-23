@@ -274,8 +274,8 @@ function ProductModal({
   async function handleSave() {
     setSaving(true);
     try {
-      if (!form.sku || !form.name) {
-        toast('الاسم ورمز SKU مطلوبان', 'error');
+      if (!form.sku || (!form.name && !form.name_ar)) {
+        toast('يجب إدخال اسم المنتج (عربي أو إنجليزي) ورمز SKU', 'error');
         setSaving(false);
         return;
       }
