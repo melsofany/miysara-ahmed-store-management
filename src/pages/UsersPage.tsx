@@ -73,21 +73,42 @@ export function UsersPage() {
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <span className="mi-badge bg-teal-50 text-teal-700"><Shield size={11} /> {u.role ? roleLabel[u.role.key] ?? u.role.name : 'بدون دور'}</span>
-                  {u.can_view_cost && <span className="mi-badge bg-amber-50 text-amber-600"><KeyRound size={11} /> يرى التكلفة</span>}
-                  <span className={`mi-badge ${u.is_active ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>{u.is_active ? 'نشط' : 'موقوف'}</span>
+                  <span className={`mi-badge ${u.is_active ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+                    {u.is_active ? 'نشط' : 'موقوف'}
+                  </span>
+                  <span className="mi-badge bg-slate-100 text-slate-600 flex items-center gap-1">
+                    <Shield size={12} />
+                    {u.role ? (roleLabel[u.role.key] ?? u.role.name_ar ?? u.role.name) : 'بدون دور'}
+                  </span>
                 </div>
+              )}
+              {canManage && (
+                <span className="mi-badge bg-slate-100 text-slate-600 flex items-center gap-1">
+                  <KeyRound size={12} />
+                  {u.role ? (roleLabel[u.role.key] ?? u.role.name_ar ?? u.role.name) : 'بدون دور'}
+                </span>
               )}
             </div>
           ))}
         </div>
       )}
 
-      {showCreate && <CreateUserModal roles={roles} onClose={() => setShowCreate(false)} onSaved={() => { setShowCreate(false); load(); }} />}
+      {showCreate && (
+        <CreateUserModal
+          roles={roles}
+          onClose={() => setShowCreate(false)}
+          onSaved={() => { setShowCreate(false); load(); }}
+        />
+      )}
     </div>
   );
 }
 
+/**
+ * Creates a new user via supabase.auth.signUp, then immediately restores
+ * the admin's session (in case Supabase auto-confirms the new user and
+ * overwrites the active session).
+ */
 function CreateUserModal({ roles, onClose, onSaved }: { roles: Role[]; onClose: () => void; onSaved: () => void }) {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -97,31 +118,54 @@ function CreateUserModal({ roles, onClose, onSaved }: { roles: Role[]; onClose: 
   const [saving, setSaving] = useState(false);
 
   async function save() {
+    if (!fullName || !email || !password) {
+      toast('جميع الحقول مطلوبة', 'error');
+      return;
+    }
     setSaving(true);
     try {
-      if (!fullName || !email || !password) { toast('جميع الحقول مطلوبة', 'error'); setSaving(false); return; }
-      const { data, error } = await supabase.auth.admin.createUser({ email, password, email_confirm: true });
-      if (error) {
-        // fallback: regular signup
-        const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({ email, password });
-        if (signUpErr) throw signUpErr;
-        if (signUpData.user) {
-          const { error: profErr } = await supabase.from('profiles').insert({
-            id: signUpData.user.id, email, full_name: fullName, role_id: roleId || null,
-            company_id: '00000000-0000-0000-0000-000000000001', can_view_cost: canViewCost,
-          });
-          if (profErr) throw profErr;
-        }
-      } else if (data.user) {
+      // 1. Fetch company id dynamically
+      const { data: company } = await supabase.from('companies').select('id').limit(1).maybeSingle();
+      const companyId = company?.id ?? null;
+
+      // 2. Save the current admin session BEFORE signing up a new user.
+      //    If Supabase has "Confirm email" disabled, signUp will auto-login
+      //    the new user and overwrite our session — we must restore it.
+      const { data: { session: adminSession } } = await supabase.auth.getSession();
+
+      // 3. Create the new auth user
+      const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({ email, password });
+      if (signUpErr) throw signUpErr;
+
+      // 4. Immediately restore admin session (if it existed and was replaced)
+      if (adminSession) {
+        await supabase.auth.setSession({
+          access_token: adminSession.access_token,
+          refresh_token: adminSession.refresh_token,
+        });
+      }
+
+      // 5. Create profile for the new user (now with admin auth restored)
+      if (signUpData.user) {
         const { error: profErr } = await supabase.from('profiles').upsert({
-          id: data.user.id, email, full_name: fullName, role_id: roleId || null,
-          company_id: '00000000-0000-0000-0000-000000000001', can_view_cost: canViewCost, is_active: true,
+          id: signUpData.user.id,
+          email,
+          full_name: fullName,
+          role_id: roleId || null,
+          company_id: companyId,
+          can_view_cost: canViewCost,
+          is_active: true,
         });
         if (profErr) throw profErr;
       }
-      toast('تم إنشاء المستخدم بنجاح');
+
+      toast('تم إنشاء المستخدم بنجاح. أرسل له بيانات الدخول.');
       onSaved();
-    } catch (e: any) { toast(e.message, 'error'); } finally { setSaving(false); }
+    } catch (e: unknown) {
+      toast(e instanceof Error ? e.message : 'حدث خطأ', 'error');
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -130,12 +174,25 @@ function CreateUserModal({ roles, onClose, onSaved }: { roles: Role[]; onClose: 
         <div><label className="mi-label">الاسم الكامل</label><input value={fullName} onChange={(e) => setFullName(e.target.value)} className="mi-input" /></div>
         <div><label className="mi-label">البريد الإلكتروني</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mi-input" dir="ltr" /></div>
         <div><label className="mi-label">كلمة المرور</label><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="mi-input" dir="ltr" /></div>
-        <div><label className="mi-label">الدور</label><select value={roleId} onChange={(e) => setRoleId(e.target.value)} className="mi-input"><option value="">بدون دور</option>{roles.map((r) => <option key={r.id} value={r.id}>{r.name_ar ?? r.name}</option>)}</select></div>
-        <label className="flex items-center gap-2 text-sm font-semibold text-slate-700"><input type="checkbox" checked={canViewCost} onChange={(e) => setCanViewCost(e.target.checked)} className="h-4 w-4 rounded text-teal-600" /> صلاحية رؤية أسعار التكلفة</label>
+        <div><label className="mi-label">الدور</label>
+          <select value={roleId} onChange={(e) => setRoleId(e.target.value)} className="mi-input">
+            <option value="">بدون دور</option>
+            {roles.map((r) => <option key={r.id} value={r.id}>{r.name_ar ?? r.name}</option>)}
+          </select>
+        </div>
+        <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+          <input type="checkbox" checked={canViewCost} onChange={(e) => setCanViewCost(e.target.checked)} className="h-4 w-4 rounded text-teal-600" />
+          صلاحية رؤية أسعار التكلفة
+        </label>
+        <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-700">
+          ⚠️ المستخدم الجديد سيحتاج لتأكيد بريده الإلكتروني قبل تسجيل الدخول (حسب إعدادات Supabase).
+        </div>
       </div>
       <div className="mt-6 flex justify-end gap-2">
         <button onClick={onClose} className="mi-btn-secondary">إلغاء</button>
-        <button onClick={save} disabled={saving} className="mi-btn-primary">{saving ? <Loader2 size={16} className="animate-spin" /> : null} إنشاء</button>
+        <button onClick={save} disabled={saving} className="mi-btn-primary">
+          {saving ? <Loader2 size={16} className="animate-spin" /> : null} إنشاء
+        </button>
       </div>
     </Modal>
   );
