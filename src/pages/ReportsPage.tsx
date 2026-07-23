@@ -12,6 +12,13 @@ import type { PosLocation, Profile } from '@/lib/types';
 
 type ReportType = 'sales' | 'products' | 'profit' | 'cashier';
 
+interface SalesRow { name: string; total: number; count: number }
+interface ProductRow { name: string; qty: number; total: number }
+interface ProfitRow { name: string; revenue: number; cost: number; profit: number; qty: number }
+interface CashierRow { name: string; total: number; count: number }
+
+type ReportRow = SalesRow | ProductRow | ProfitRow | CashierRow;
+
 export function ReportsPage() {
   const { can } = useCan();
   const canViewProfit = can('view_profit_reports');
@@ -20,7 +27,7 @@ export function ReportsPage() {
   const [posId, setPosId] = useState('');
   const [posList, setPosList] = useState<PosLocation[]>([]);
   const [users, setUsers] = useState<Profile[]>([]);
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<ReportRow[]>([]);
   const [summary, setSummary] = useState({ total: 0, count: 0, profit: 0 });
   const [loading, setLoading] = useState(true);
 
@@ -57,9 +64,9 @@ export function ReportsPage() {
       const profit = (items ?? []).reduce((s, it) => s + (Number(it.unit_price) - Number(it.unit_cost_price)) * Number(it.quantity), 0);
       setSummary({ total: totalSales, count: invoices?.length ?? 0, profit });
 
-      let rows: any[] = [];
+      let rows: ReportRow[] = [];
       if (type === 'sales') {
-        const agg = new Map<string, { name: string; total: number; count: number }>();
+        const agg = new Map<string, SalesRow>();
         (invoices ?? []).forEach((inv) => {
           const name = posMap.get(inv.pos_location_id)?.name_ar ?? '—';
           const cur = agg.get(inv.pos_location_id) ?? { name, total: 0, count: 0 };
@@ -68,7 +75,7 @@ export function ReportsPage() {
         });
         rows = Array.from(agg.values()).sort((a, b) => b.total - a.total);
       } else if (type === 'products') {
-        const agg = new Map<string, { name: string; qty: number; total: number }>();
+        const agg = new Map<string, ProductRow>();
         (items ?? []).forEach((it) => {
           const cur = agg.get(it.product_name) ?? { name: it.product_name, qty: 0, total: 0 };
           cur.qty += Number(it.quantity); cur.total += Number(it.line_total);
@@ -76,7 +83,7 @@ export function ReportsPage() {
         });
         rows = Array.from(agg.values()).sort((a, b) => b.qty - a.qty);
       } else if (type === 'profit') {
-        const agg = new Map<string, { name: string; revenue: number; cost: number; profit: number; qty: number }>();
+        const agg = new Map<string, ProfitRow>();
         (items ?? []).forEach((it) => {
           const revenue = Number(it.unit_price) * Number(it.quantity);
           const cost = Number(it.unit_cost_price) * Number(it.quantity);
@@ -86,7 +93,7 @@ export function ReportsPage() {
         });
         rows = Array.from(agg.values()).sort((a, b) => b.profit - a.profit);
       } else if (type === 'cashier') {
-        const agg = new Map<string, { name: string; total: number; count: number }>();
+        const agg = new Map<string, CashierRow>();
         (invoices ?? []).forEach((inv) => {
           const name = userMap.get(inv.cashier_id)?.full_name ?? '—';
           const cur = agg.get(inv.cashier_id) ?? { name, total: 0, count: 0 };
@@ -155,10 +162,10 @@ export function ReportsPage() {
             <tbody className="divide-y divide-slate-100">
               {data.map((r, i) => (
                 <tr key={i} className="hover:bg-slate-50">
-                  {type === 'sales' && <><td className="px-4 py-3 font-semibold text-slate-700">{r.name}</td><td className="px-4 py-3 text-slate-600">{formatNumber(r.count)}</td><td className="px-4 py-3 font-bold text-teal-700">{formatCurrency(r.total)}</td></>}
-                  {type === 'products' && <><td className="px-4 py-3 font-semibold text-slate-700">{r.name}</td><td className="px-4 py-3 text-slate-600">{formatNumber(r.qty)}</td><td className="px-4 py-3 font-bold text-teal-700">{formatCurrency(r.total)}</td></>}
-                  {type === 'profit' && <><td className="px-4 py-3 font-semibold text-slate-700">{r.name}</td><td className="px-4 py-3 text-slate-600">{formatNumber(r.qty)}</td><td className="px-4 py-3 text-slate-600">{formatCurrency(r.revenue)}</td><td className="px-4 py-3 text-slate-500">{formatCurrency(r.cost)}</td><td className="px-4 py-3 font-bold text-green-600">{formatCurrency(r.profit)}</td></>}
-                  {type === 'cashier' && <><td className="px-4 py-3 font-semibold text-slate-700">{r.name}</td><td className="px-4 py-3 text-slate-600">{formatNumber(r.count)}</td><td className="px-4 py-3 font-bold text-teal-700">{formatCurrency(r.total)}</td></>}
+                  {type === 'sales' && 'total' in r && 'count' in r && <><td className="px-4 py-3 font-semibold text-slate-700">{r.name}</td><td className="px-4 py-3 text-slate-600">{formatNumber(r.count)}</td><td className="px-4 py-3 font-bold text-teal-700">{formatCurrency(r.total)}</td></>}
+                  {type === 'products' && 'qty' in r && 'total' in r && <><td className="px-4 py-3 font-semibold text-slate-700">{r.name}</td><td className="px-4 py-3 text-slate-600">{formatNumber(r.qty)}</td><td className="px-4 py-3 font-bold text-teal-700">{formatCurrency(r.total)}</td></>}
+                  {type === 'profit' && 'profit' in r && 'revenue' in r && <><td className="px-4 py-3 font-semibold text-slate-700">{r.name}</td><td className="px-4 py-3 text-slate-600">{formatNumber(r.qty)}</td><td className="px-4 py-3 text-slate-600">{formatCurrency(r.revenue)}</td><td className="px-4 py-3 text-slate-500">{formatCurrency(r.cost)}</td><td className="px-4 py-3 font-bold text-green-600">{formatCurrency(r.profit)}</td></>}
+                  {type === 'cashier' && 'total' in r && 'count' in r && <><td className="px-4 py-3 font-semibold text-slate-700">{r.name}</td><td className="px-4 py-3 text-slate-600">{formatNumber(r.count)}</td><td className="px-4 py-3 font-bold text-teal-700">{formatCurrency(r.total)}</td></>}
                 </tr>
               ))}
             </tbody>
