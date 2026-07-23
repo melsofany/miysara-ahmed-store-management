@@ -269,7 +269,7 @@ function ProductModal({
   const [variants, setVariants] = useState<ProductVariant[]>(product?.variants ?? []);
   const [saving, setSaving] = useState(false);
 
-  const set = (k: keyof Product, v: any) => setForm((f) => ({ ...f, [k]: v }));
+  const set = <K extends keyof Product>(k: K, v: Product[K]) => setForm((f) => ({ ...f, [k]: v }));
 
   async function handleSave() {
     setSaving(true);
@@ -315,8 +315,8 @@ function ProductModal({
       }
       toast(isNew ? 'تم إضافة المنتج' : 'تم تحديث المنتج');
       onSaved();
-    } catch (e: any) {
-      toast(e.message || 'حدث خطأ', 'error');
+    } catch (e: unknown) {
+      toast(e instanceof Error ? e.message : 'حدث خطأ', 'error');
     } finally {
       setSaving(false);
     }
@@ -340,7 +340,7 @@ function ProductModal({
     ]);
   }
 
-  function updateVariant(idx: number, key: keyof ProductVariant, value: any) {
+  function updateVariant<K extends keyof ProductVariant>(idx: number, key: K, value: ProductVariant[K]) {
     setVariants((vs) => vs.map((v, i) => (i === idx ? { ...v, [key]: value } : v)));
   }
 
