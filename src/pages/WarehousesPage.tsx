@@ -83,10 +83,21 @@ export function WarehousesPage() {
   );
 }
 
+interface WarehouseFormData {
+  id?: string;
+  name: string;
+  name_ar: string | null;
+  code: string;
+  address: string | null;
+  phone: string | null;
+  is_active: boolean;
+  company_id?: string | null;
+}
+
 function WarehouseModal({ item, onClose, onSaved }: { item: Warehouse | null; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState<Record<string, any>>(item ?? { name: '', name_ar: '', code: '', address: '', phone: '', is_active: true });
+  const [form, setForm] = useState<WarehouseFormData>(item ?? { name: '', name_ar: null, code: '', address: null, phone: null, is_active: true });
   const [saving, setSaving] = useState(false);
-  const set = (k: string, v: any) => setForm((f) => ({ ...f, [k]: v }));
+  const set = <K extends keyof WarehouseFormData>(k: K, v: WarehouseFormData[K]) => setForm((f) => ({ ...f, [k]: v }));
 
   async function save() {
     setSaving(true);
