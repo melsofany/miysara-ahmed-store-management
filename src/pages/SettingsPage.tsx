@@ -9,7 +9,7 @@ import type { Company } from '@/lib/types';
 export function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState<Record<string, any>>({});
+  const [form, setForm] = useState<Partial<Company>>({});
 
   useEffect(() => {
     supabase.from('companies').select('*').limit(1).maybeSingle().then(({ data }) => {
@@ -18,7 +18,7 @@ export function SettingsPage() {
     });
   }, []);
 
-  const set = (k: string, v: any) => setForm((f) => ({ ...f, [k]: v }));
+  const set = <K extends keyof Company>(k: K, v: Company[K]) => setForm((f) => ({ ...f, [k]: v }));
 
   async function save() {
     setSaving(true);
@@ -28,10 +28,10 @@ export function SettingsPage() {
         tax_enabled: form.tax_enabled, tax_rate: Number(form.tax_rate),
         phone: form.phone, address: form.address, logo_url: form.logo_url,
         updated_at: new Date().toISOString(),
-      }).eq('id', form.id);
+      }).eq('id', form.id as string);
       if (error) throw error;
       toast('تم حفظ الإعدادات');
-    } catch (e: any) { toast(e.message, 'error'); } finally { setSaving(false); }
+    } catch (e: unknown) { toast(e instanceof Error ? e.message : 'حدث خطأ', 'error'); } finally { setSaving(false); }
   }
 
   if (loading) return <div className="flex justify-center py-16"><Loader2 size={28} className="animate-spin text-teal-600" /></div>;
