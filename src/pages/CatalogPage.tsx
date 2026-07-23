@@ -22,15 +22,33 @@ const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'colors', label: 'الألوان', icon: <Palette size={18} /> },
 ];
 
+type CatalogItem = Category | Supplier | Manufacturer | Season | Size | Color;
+type CatalogDraft = Partial<CatalogItem> & { _new?: boolean };
+
+interface CatalogFormData {
+  id?: string;
+  name?: string;
+  name_ar?: string | null;
+  is_active?: boolean;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  country?: string | null;
+  hex_code?: string | null;
+  category_id?: string | null;
+  sort_order?: number;
+  parent_id?: string | null;
+}
+
 export function CatalogPage() {
   const { can } = useCan();
   const canManage = can('manage_categories');
   const [tab, setTab] = useState<Tab>('categories');
   const cat = useCatalog();
   const [search, setSearch] = useState('');
-  const [editing, setEditing] = useState<any>(null);
+  const [editing, setEditing] = useState<CatalogDraft | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState<any>(null);
+  const [confirmDelete, setConfirmDelete] = useState<CatalogItem | null>(null);
 
   const filter = (list: { name: string; name_ar: string | null }[]) =>
     list.filter((x) =>
@@ -43,17 +61,17 @@ export function CatalogPage() {
     setEditing({ _new: true });
     setShowModal(true);
   }
-  function openEdit(item: any) {
+  function openEdit(item: CatalogItem) {
     setEditing(item);
     setShowModal(true);
   }
 
-  async function handleSave(values: Record<string, any>) {
+  async function handleSave(values: CatalogFormData) {
     const isNew = editing._new;
     const table = tab;
     const { error } = isNew
       ? await supabase.from(table).insert(values)
-      : await supabase.from(table).update(values).eq('id', editing.id);
+      : await supabase.from(table).update(values).eq('id', editing!.id as string);
     if (error) {
       toast(error.message, 'error');
       return;
@@ -291,19 +309,19 @@ function EntityModal({
   onSave,
 }: {
   tab: Tab;
-  entity: any;
+  entity: CatalogDraft;
   categories: Category[];
   onClose: () => void;
-  onSave: (values: Record<string, any>) => void;
+  onSave: (values: CatalogFormData) => void;
 }) {
   const isNew = entity._new;
-  const [form, setForm] = useState<Record<string, any>>(() => {
+  const [form, setForm] = useState<CatalogFormData>(() => {
     if (isNew) return { is_active: true, sort_order: 0 };
-    const { _new, ...rest } = entity;
-    return rest;
+    const { _new: _, ...rest } = entity;
+    return rest as CatalogFormData;
   });
 
-  const set = (k: string, v: any) => setForm((f) => ({ ...f, [k]: v }));
+  const set = <K extends keyof CatalogFormData>(k: K, v: CatalogFormData[K]) => setForm((f) => ({ ...f, [k]: v }));
 
   const fields = (() => {
     switch (tab) {
