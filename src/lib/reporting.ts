@@ -85,11 +85,13 @@ export async function fetchDashboard(
   if (posId) posQuery = posQuery.eq('pos_location_id', posId);
   const { data: invoices } = await posQuery;
 
-  let itemsQuery = supabase
-    .from('invoice_items')
-    .select('product_variant_id, product_name, quantity, unit_price, unit_cost_price, line_total, invoice_id')
-    .in('invoice_id', (invoices ?? []).map((i) => i.id));
-  const { data: items } = await itemsQuery;
+  const invoiceIds = (invoices ?? []).map((i) => i.id);
+  const { data: items } = invoiceIds.length > 0
+    ? await supabase
+        .from('invoice_items')
+        .select('product_variant_id, product_name, quantity, unit_price, unit_cost_price, line_total, invoice_id')
+        .in('invoice_id', invoiceIds)
+    : { data: [] };
 
   let returnsQuery = supabase
     .from('invoice_returns')
