@@ -202,7 +202,6 @@ export async function fetchDashboard(
   const { data: allProducts } = await supabase
     .from('products')
     .select('id, name, name_ar, min_stock_level');
-  const prodNameMap = new Map((allProducts ?? []).map((p) => [p.id, p]));
   const totalQtyByProduct = new Map<string, number>();
   (variants ?? []).forEach((v) => {
     const pid = v.product_id;
