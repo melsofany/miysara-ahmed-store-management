@@ -357,16 +357,22 @@ export function PosPage() {
       }
     }
 
-    // Update shift totals
+    // Update shift totals — also update local state so subsequent sales in the
+    // same shift use the correct running totals (not stale initial values).
     if (activeShift) {
-      const updates: any = {};
-      if (method === 'cash') updates.cash_sales = activeShift.cash_sales + total;
-      if (method === 'card') updates.card_sales = activeShift.card_sales + total;
-      if (method === 'e_wallet') updates.e_payment_sales = activeShift.e_payment_sales + total;
-      if (method === 'cash') {
-        updates.expected_cash = activeShift.opening_cash + activeShift.cash_sales + total - activeShift.cash_refunds - activeShift.cash_expenses;
-      }
+      const newCashSales = method === 'cash' ? Number(activeShift.cash_sales) + total : Number(activeShift.cash_sales);
+      const newCardSales = method === 'card' ? Number(activeShift.card_sales) + total : Number(activeShift.card_sales);
+      const newEPaySales = method === 'e_wallet' ? Number(activeShift.e_payment_sales) + total : Number(activeShift.e_payment_sales);
+      const newExpectedCash = Number(activeShift.opening_cash) + newCashSales - Number(activeShift.cash_refunds) - Number(activeShift.cash_expenses);
+      const updates: Partial<CashShift> = {
+        cash_sales: newCashSales,
+        card_sales: newCardSales,
+        e_payment_sales: newEPaySales,
+        expected_cash: newExpectedCash,
+      };
       await supabase.from('cash_shifts').update(updates).eq('id', activeShift.id);
+      // Mirror the new totals in local state so the next sale computes correctly
+      setActiveShift({ ...activeShift, ...updates });
     }
 
     setLastInvoice({ ...invoice, items: cart, change, method });
