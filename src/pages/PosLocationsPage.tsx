@@ -48,7 +48,7 @@ export function PosLocationsPage() {
   async function openManageUsers(pos: PosLocation) {
     setManageUsers(pos);
     const { data } = await supabase.from('user_pos_locations').select('user_id').eq('pos_location_id', pos.id);
-    setAssignedUserIds((data ?? []).map((d: any) => d.user_id));
+    setAssignedUserIds((data ?? []).map((d: { user_id: string }) => d.user_id));
   }
 
   async function toggleUser(userId: string) {
@@ -123,10 +123,21 @@ export function PosLocationsPage() {
   );
 }
 
+interface PosFormData {
+  id?: string;
+  name: string;
+  name_ar: string | null;
+  code: string;
+  warehouse_id: string | null;
+  allow_sell_out_of_stock: boolean;
+  is_active: boolean;
+  company_id?: string | null;
+}
+
 function PosModal({ item, warehouses, onClose, onSaved }: { item: PosLocation | null; warehouses: Warehouse[]; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState<Record<string, any>>(item ?? { name: '', name_ar: '', code: '', warehouse_id: '', allow_sell_out_of_stock: false, is_active: true });
+  const [form, setForm] = useState<PosFormData>(item ?? { name: '', name_ar: null, code: '', warehouse_id: null, allow_sell_out_of_stock: false, is_active: true });
   const [saving, setSaving] = useState(false);
-  const set = (k: string, v: any) => setForm((f) => ({ ...f, [k]: v }));
+  const set = <K extends keyof PosFormData>(k: K, v: PosFormData[K]) => setForm((f) => ({ ...f, [k]: v }));
 
   async function save() {
     setSaving(true);
