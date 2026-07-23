@@ -18,11 +18,6 @@ interface AuthContextValue {
   permissions: string[];
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
-  signUp: (
-    email: string,
-    password: string,
-    fullName: string
-  ) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -96,26 +91,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error ? error.message : null };
   }
 
-  async function signUp(email: string, password: string, fullName: string) {
-    // Fetch the company ID dynamically
-    const { data: company } = await supabase
-      .from('companies')
-      .select('id')
-      .limit(1)
-      .maybeSingle();
-    const companyId = (company as { id?: string } | null)?.id ?? null;
-
-    // Call the backend signup endpoint directly (includes password hashing)
-    const res = await fetch('/api/auth/signup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, fullName, companyId }),
-    });
-    const json = await res.json();
-    if (!res.ok) return { error: json.error || 'حدث خطأ أثناء التسجيل' };
-    return { error: null };
-  }
-
   async function signOut() {
     await supabase.auth.signOut();
     setProfile(null);
@@ -136,7 +111,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         permissions,
         loading,
         signIn,
-        signUp,
         signOut,
         refreshProfile,
       }}

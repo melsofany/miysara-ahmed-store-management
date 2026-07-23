@@ -1,37 +1,26 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shirt, LogIn, UserPlus, Loader2 } from 'lucide-react';
+import { Shirt, LogIn, Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { Logo } from '@/components/Logo';
 import { toast } from '@/components/Toast';
 
 export function AuthPage() {
-  const { signIn, signUp } = useAuth();
+  const { signIn } = useAuth();
   const navigate = useNavigate();
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     try {
-      if (mode === 'login') {
-        const { error } = await signIn(email, password);
-        if (error) toast(error, 'error');
-        else {
-          toast('تم تسجيل الدخول بنجاح', 'success');
-          navigate('/');
-        }
-      } else {
-        const { error } = await signUp(email, password, fullName);
-        if (error) toast(error, 'error');
-        else {
-          toast('تم إنشاء الحساب. يرجى تسجيل الدخول.', 'success');
-          setMode('login');
-        }
+      const { error } = await signIn(email, password);
+      if (error) toast(error, 'error');
+      else {
+        toast('تم تسجيل الدخول بنجاح', 'success');
+        navigate('/');
       }
     } finally {
       setLoading(false);
@@ -90,28 +79,13 @@ export function AuthPage() {
           </div>
 
           <h2 className="text-2xl font-extrabold text-slate-800">
-            {mode === 'login' ? 'تسجيل الدخول' : 'إنشاء حساب جديد'}
+            تسجيل دخول الموظفين
           </h2>
           <p className="mt-1.5 text-sm text-slate-500">
-            {mode === 'login'
-              ? 'ادخل بياناتك للوصول إلى لوحة التحكم'
-              : 'أنشئ حسابك للبدء مع نظام MIYSARA Ahmed'}
+            أدخل بيانات الحساب المعتمد من إدارة المؤسسة
           </p>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-4">
-            {mode === 'signup' && (
-              <div>
-                <label className="mi-label">الاسم الكامل</label>
-                <input
-                  type="text"
-                  required
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="مثال: أحمد محمد"
-                  className="mi-input"
-                />
-              </div>
-            )}
             <div>
               <label className="mi-label">البريد الإلكتروني</label>
               <input
@@ -145,23 +119,15 @@ export function AuthPage() {
             >
               {loading ? (
                 <Loader2 size={18} className="animate-spin" />
-              ) : mode === 'login' ? (
-                <LogIn size={18} />
               ) : (
-                <UserPlus size={18} />
+                <LogIn size={18} />
               )}
-              {mode === 'login' ? 'دخول' : 'إنشاء الحساب'}
+              دخول
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-slate-500">
-            {mode === 'login' ? 'ليس لديك حساب؟' : 'لديك حساب بالفعل؟'}{' '}
-            <button
-              onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
-              className="font-bold text-teal-700 hover:underline"
-            >
-              {mode === 'login' ? 'إنشاء حساب' : 'تسجيل الدخول'}
-            </button>
+          <p className="mt-6 text-center text-xs text-slate-400">
+            إنشاء حسابات الموظفين متاح فقط من إدارة المستخدمين للمشرفين المخولين.
           </p>
         </div>
       </div>

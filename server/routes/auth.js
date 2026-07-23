@@ -2,7 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { pool } from '../db.js';
-import { requireAuth, JWT_SECRET } from '../middleware/auth.js';
+import { requireAuth, requirePermission, JWT_SECRET } from '../middleware/auth.js';
 
 const router = Router();
 const JWT_EXPIRES = '7d';
@@ -31,11 +31,18 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// POST /api/auth/signup
-router.post('/signup', async (req, res) => {
-  const { email, password, fullName, companyId } = req.body || {};
+// Public self-registration is intentionally disabled for this institutional system.
+router.post('/signup', (_req, res) => {
+  res.status(403).json({ error: 'التسجيل الذاتي غير متاح. تواصل مع إدارة المؤسسة.' });
+});
+
+// POST /api/auth/employees — only authorized managers can create employee accounts.
+router.post('/employees', requireAuth, requirePermission('manage_users'), async (req, res) => {
+  const { email, password, fullName, roleId, companyId, canViewCost = false } = req.body || {};
   if (!email || !password || !fullName)
-    return res.status(400).json({ error: 'جميع الحقول مطلوبة' });
+    return res.status(400).json({ error: 'الاسم والبريد وكلمة المرور مطلوبة' });
+  if (password.length < 6)
+    return res.status(400).json({ error: 'كلمة المرور يجب أن تكون 6 أحرف على الأقل' });
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -55,8 +62,8 @@ router.post('/signup', async (req, res) => {
     }
     const { rows: prof } = await client.query(
       `INSERT INTO profiles (email, full_name, role_id, company_id, can_view_cost, is_active, full_name_ar, phone)
-       VALUES ($1, $2, NULL, $3, false, true, NULL, NULL) RETURNING id`,
-      [email.toLowerCase(), fullName, cId]
+       VALUES ($1, $2, $3, $4, $5, true, NULL, NULL) RETURNING id`,
+      [email.toLowerCase(), fullName, roleId || null, cId, Boolean(canViewCost)]
     );
     const profileId = prof[0].id;
     const hash = await bcrypt.hash(password, 12);

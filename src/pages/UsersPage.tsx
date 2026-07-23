@@ -122,30 +122,15 @@ function CreateUserModal({ roles, onClose, onSaved }: { roles: Role[]; onClose: 
       const { data: company } = await supabase.from('companies').select('id').limit(1).maybeSingle();
       const companyId = company?.id ?? null;
 
-      const { data: { session: adminSession } } = await supabase.auth.getSession();
-
-      const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({ email, password });
-      if (signUpErr) throw signUpErr;
-
-      if (adminSession) {
-        await supabase.auth.setSession({
-          access_token: adminSession.access_token,
-          refresh_token: adminSession.refresh_token,
-        });
-      }
-
-      if (signUpData.user) {
-        const { error: profErr } = await supabase.from('profiles').upsert({
-          id: signUpData.user.id,
-          email,
-          full_name: fullName,
-          role_id: roleId || null,
-          company_id: companyId,
-          can_view_cost: canViewCost,
-          is_active: true,
-        });
-        if (profErr) throw profErr;
-      }
+      const { error } = await supabase.auth.createEmployee({
+        email,
+        password,
+        fullName,
+        roleId: roleId || null,
+        companyId,
+        canViewCost,
+      });
+      if (error) throw error;
 
       toast('تم إنشاء المستخدم بنجاح. أرسل له بيانات الدخول.');
       onSaved();
@@ -173,7 +158,7 @@ function CreateUserModal({ roles, onClose, onSaved }: { roles: Role[]; onClose: 
           صلاحية رؤية أسعار التكلفة
         </label>
         <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-700">
-          ⚠️ المستخدم الجديد سيحتاج لتأكيد بريده الإلكتروني قبل تسجيل الدخول (حسب إعدادات Supabase).
+          سيتمكن الموظف من الدخول بالحساب الذي تنشئه الإدارة فقط.
         </div>
       </div>
       <div className="mt-6 flex justify-end gap-2">

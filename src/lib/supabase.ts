@@ -226,10 +226,33 @@ const auth = {
     }
   },
 
-  async signUp(_opts: { email: string; password: string }) {
-    // Actual signup with fullName is handled via /api/auth/signup in AuthContext.
-    // This stub satisfies any direct callers.
-    return { data: null, error: { message: 'Use signUp from AuthContext' } };
+  async createEmployee({
+    email,
+    password,
+    fullName,
+    roleId,
+    companyId,
+    canViewCost,
+  }: {
+    email: string;
+    password: string;
+    fullName: string;
+    roleId: string | null;
+    companyId: string | null;
+    canViewCost: boolean;
+  }) {
+    try {
+      const res = await fetch(`${API_BASE}/auth/employees`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ email, password, fullName, roleId, companyId, canViewCost }),
+      });
+      const json = await res.json();
+      if (!res.ok) return { data: null, error: { message: json.error || 'حدث خطأ أثناء إنشاء الموظف' } };
+      return { data: json, error: null };
+    } catch (e) {
+      return { data: null, error: { message: (e as Error).message } };
+    }
   },
 
   async signOut() {
