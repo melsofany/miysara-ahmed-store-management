@@ -157,7 +157,6 @@ export function PosPage() {
       }
 
       // Get inventory for this POS
-      const variantIds = list.map((v) => v.id);
       const { data: inv } = await supabase
         .from('inventory')
         .select('product_variant_id, quantity')
