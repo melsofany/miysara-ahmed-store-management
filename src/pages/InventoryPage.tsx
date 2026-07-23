@@ -285,7 +285,19 @@ function MovementModal({
     setSaving(true);
     try {
       if (!variantId || qty <= 0) { toast('اختر المنتج والكمية', 'error'); setSaving(false); return; }
-      const movement: any = {
+      const movement: {
+        movement_type: MovementType;
+        product_variant_id: string;
+        quantity: number;
+        unit_cost_price: number;
+        document_ref: string | null;
+        notes: string | null;
+        user_id: string;
+        from_location_id?: string;
+        from_location_type?: string;
+        to_location_id?: string;
+        to_location_type?: string;
+      } = {
         movement_type: type,
         product_variant_id: variantId,
         quantity: qty,
@@ -306,8 +318,8 @@ function MovementModal({
 
       toast('تم تسجيل الحركة بنجاح');
       onSaved();
-    } catch (err: any) {
-      toast(err.message, 'error');
+    } catch (err: unknown) {
+      toast(err instanceof Error ? err.message : 'حدث خطأ', 'error');
     } finally {
       setSaving(false);
     }
