@@ -37,3 +37,4 @@ logs
 *.log
 npm-debug.log*
 pnpm-debug.log*
+package-lock.json
