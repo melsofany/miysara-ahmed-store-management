@@ -23,7 +23,7 @@ export function ReturnsPage() {
       .limit(200);
     if (search) q = q.or(`return_number.ilike.%${search}%`);
     const { data } = await q;
-    setReturns((data as any) ?? []);
+    setReturns((data as (InvoiceReturn & { original_invoice?: Invoice; user?: Profile; pos_location?: PosLocation })[]) ?? []);
     setLoading(false);
   }, [search]);
 
