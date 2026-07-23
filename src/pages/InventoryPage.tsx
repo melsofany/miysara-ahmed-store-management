@@ -1,15 +1,12 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   Package,
-  ArrowRightLeft,
-  Plus,
   Loader2,
   PackageCheck,
-  PackageMinus,
-  RefreshCw,
+  History,
   Warehouse as WhIcon,
   Store,
-  History,
+  Plus,
 } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { Modal } from '@/components/Modal';
@@ -36,6 +33,9 @@ const movementLabels: Record<MovementType, string> = {
   sale_return: 'مرتجع بيع',
 };
 
+type InventoryWithRelations = Inventory & { product_variant: (ProductVariant & { product: Product | null }) | null };
+type MovementWithRelations = StockMovement & { product_variant: ProductVariant | null };
+
 export function InventoryPage() {
   const { can } = useCan();
   const { profile } = useAuth();
@@ -45,8 +45,8 @@ export function InventoryPage() {
   const [view, setView] = useState<View>('inventory');
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [posList, setPosList] = useState<PosLocation[]>([]);
-  const [inventory, setInventory] = useState<(Inventory & { product_variant?: ProductVariant & { product?: Product } })[]>([]);
-  const [movements, setMovements] = useState<(StockMovement & { product_variant?: ProductVariant })[]>([]);
+  const [inventory, setInventory] = useState<InventoryWithRelations[]>([]);
+  const [movements, setMovements] = useState<MovementWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [locFilter, setLocFilter] = useState('');
@@ -68,7 +68,7 @@ export function InventoryPage() {
         .order('updated_at', { ascending: false });
       if (locFilter) q = q.eq('location_id', locFilter);
       const { data } = await q;
-      setInventory((data as any) ?? []);
+      setInventory((data as InventoryWithRelations[]) ?? []);
     } else {
       let q = supabase
         .from('stock_movements')
@@ -77,7 +77,7 @@ export function InventoryPage() {
         .limit(200);
       if (locFilter) q = q.or(`from_location_id.eq.${locFilter},to_location_id.eq.${locFilter}`);
       const { data } = await q;
-      setMovements((data as any) ?? []);
+      setMovements((data as MovementWithRelations[]) ?? []);
     }
     setLoading(false);
   }, [view, locFilter]);
@@ -137,102 +137,102 @@ export function InventoryPage() {
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center py-16"><Loader2 size={28} className="animate-spin text-teal-600" /></div>
-      ) : view === 'inventory' ? (
-        filteredInventory.length === 0 ? (
-          <EmptyState icon={<Package size={48} />} title="لا يوجد مخزون" description="لا توجد أصناف في هذا الموقع." />
-        ) : (
-          <div className="mi-card overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-right text-xs text-slate-500">
-                <tr>
-                  <th className="px-4 py-3 font-semibold">المنتج</th>
-                  <th className="px-4 py-3 font-semibold">المتغير</th>
-                  <th className="px-4 py-3 font-semibold">الموقع</th>
-                  <th className="px-4 py-3 font-semibold">الكمية</th>
-                  {canViewCost && <th className="px-4 py-3 font-semibold">التكلفة</th>}
-                  <th className="px-4 py-3 font-semibold">سعر البيع</th>
+  {loading ? (
+    <div className="flex justify-center py-16"><Loader2 size={28} className="animate-spin text-teal-600" /></div>
+  ) : view === 'inventory' ? (
+    filteredInventory.length === 0 ? (
+      <EmptyState icon={<Package size={48} />} title="لا يوجد مخزون" description="لا توجد أصناف في هذا الموقع." />
+    ) : (
+      <div className="mi-card overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="border-b border-slate-200 bg-slate-50 text-right text-xs text-slate-500">
+            <tr>
+              <th className="px-4 py-3 font-semibold">المنتج</th>
+              <th className="px-4 py-3 font-semibold">المتغير</th>
+              <th className="px-4 py-3 font-semibold">الموقع</th>
+              <th className="px-4 py-3 font-semibold">الكمية</th>
+              {canViewCost && <th className="px-4 py-3 font-semibold">التكلفة</th>}
+              <th className="px-4 py-3 font-semibold">سعر البيع</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {filteredInventory.map((inv) => {
+              const p = inv.product_variant?.product;
+              const v = inv.product_variant;
+              return (
+                <tr key={inv.id} className="hover:bg-slate-50">
+                  <td className="px-4 py-3">
+                    <p className="font-semibold text-slate-700">{p?.name_ar ?? p?.name}</p>
+                    <p className="text-xs text-slate-400">SKU: {p?.sku}</p>
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">
+                    {v?.size_id && <span>{sizeName(v.size_id, cat.sizes)} </span>}
+                    {v?.color_id && <span>· {colorName(v.color_id, cat.colors)}</span>}
+                    {!v?.size_id && !v?.color_id && <span className="text-slate-400">—</span>}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`mi-badge ${inv.location_type === 'warehouse' ? 'bg-blue-50 text-blue-600' : 'bg-teal-50 text-teal-700'}`}>
+                      {inv.location_type === 'warehouse' ? <WhIcon size={11} /> : <Store size={11} />}
+                      {locName(inv.location_id, inv.location_type)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`font-bold ${inv.quantity <= 0 ? 'text-red-600' : inv.quantity <= 5 ? 'text-amber-600' : 'text-slate-700'}`}>
+                      {inv.quantity}
+                    </span>
+                  </td>
+                  {canViewCost && <td className="px-4 py-3 text-slate-600">{formatCurrency(v?.last_cost_price ?? 0)}</td>}
+                  <td className="px-4 py-3 text-slate-600">{formatCurrency(v?.selling_price ?? p?.default_selling_price ?? 0)}</td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredInventory.map((inv) => {
-                  const p = inv.product_variant?.product;
-                  const v = inv.product_variant;
-                  return (
-                    <tr key={inv.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-3">
-                        <p className="font-semibold text-slate-700">{p?.name_ar ?? p?.name}</p>
-                        <p className="text-xs text-slate-400">SKU: {p?.sku}</p>
-                      </td>
-                      <td className="px-4 py-3 text-slate-600">
-                        {v?.size_id && <span>{sizeName(v.size_id, cat.sizes)} </span>}
-                        {v?.color_id && <span>· {colorName(v.color_id, cat.colors)}</span>}
-                        {!v?.size_id && !v?.color_id && <span className="text-slate-400">—</span>}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`mi-badge ${inv.location_type === 'warehouse' ? 'bg-blue-50 text-blue-600' : 'bg-teal-50 text-teal-700'}`}>
-                          {inv.location_type === 'warehouse' ? <WhIcon size={11} /> : <Store size={11} />}
-                          {locName(inv.location_id, inv.location_type)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`font-bold ${inv.quantity <= 0 ? 'text-red-600' : inv.quantity <= 5 ? 'text-amber-600' : 'text-slate-700'}`}>
-                          {inv.quantity}
-                        </span>
-                      </td>
-                      {canViewCost && <td className="px-4 py-3 text-slate-600">{formatCurrency(v?.last_cost_price ?? 0)}</td>}
-                      <td className="px-4 py-3 text-slate-600">{formatCurrency(v?.selling_price ?? p?.default_selling_price ?? 0)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )
-      ) : movements.length === 0 ? (
-        <EmptyState icon={<History size={48} />} title="لا توجد حركات" description="لم تسجل أي حركات مخزون بعد." action={canManage && <button onClick={() => setShowMovement(true)} className="mi-btn-primary"><Plus size={18} /> حركة جديدة</button>} />
-      ) : (
-        <div className="mi-card overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-right text-xs text-slate-500">
-              <tr>
-                <th className="px-4 py-3 font-semibold">النوع</th>
-                <th className="px-4 py-3 font-semibold">المنتج</th>
-                <th className="px-4 py-3 font-semibold">من</th>
-                <th className="px-4 py-3 font-semibold">إلى</th>
-                <th className="px-4 py-3 font-semibold">الكمية</th>
-                {canViewCost && <th className="px-4 py-3 font-semibold">التكلفة</th>}
-                <th className="px-4 py-3 font-semibold">التاريخ</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {movements.map((m) => (
-                <tr key={m.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-3"><span className="mi-badge bg-slate-100 text-slate-600">{movementLabels[m.movement_type]}</span></td>
-                  <td className="px-4 py-3 text-slate-700">{m.product_variant?.barcode ?? '—'}</td>
-                  <td className="px-4 py-3 text-slate-500">{locName(m.from_location_id, m.from_location_type)}</td>
-                  <td className="px-4 py-3 text-slate-500">{locName(m.to_location_id, m.to_location_type)}</td>
-                  <td className="px-4 py-3 font-bold text-slate-700">{m.quantity}</td>
-                  {canViewCost && <td className="px-4 py-3 text-slate-600">{formatCurrency(m.unit_cost_price)}</td>}
-                  <td className="px-4 py-3 text-xs text-slate-400">{formatDateTime(m.created_at)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {showMovement && (
-        <MovementModal
-          warehouses={warehouses}
-          posList={posList}
-          userId={profile?.id ?? null}
-          onClose={() => setShowMovement(false)}
-          onSaved={() => { setShowMovement(false); load(); }}
-        />
-      )}
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    )
+  ) : movements.length === 0 ? (
+    <EmptyState icon={<History size={48} />} title="لا توجد حركات" description="لم تسجل أي حركات مخزون بعد." action={canManage && <button onClick={() => setShowMovement(true)} className="mi-btn-primary"><Plus size={18} /> حركة جديدة</button>} />
+  ) : (
+    <div className="mi-card overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="border-b border-slate-200 bg-slate-50 text-right text-xs text-slate-500">
+          <tr>
+            <th className="px-4 py-3 font-semibold">النوع</th>
+            <th className="px-4 py-3 font-semibold">المنتج</th>
+            <th className="px-4 py-3 font-semibold">من</th>
+            <th className="px-4 py-3 font-semibold">إلى</th>
+            <th className="px-4 py-3 font-semibold">الكمية</th>
+            {canViewCost && <th className="px-4 py-3 font-semibold">التكلفة</th>}
+            <th className="px-4 py-3 font-semibold">التاريخ</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {movements.map((m) => (
+            <tr key={m.id} className="hover:bg-slate-50">
+              <td className="px-4 py-3"><span className="mi-badge bg-slate-100 text-slate-600">{movementLabels[m.movement_type]}</span></td>
+              <td className="px-4 py-3 text-slate-700">{m.product_variant?.barcode ?? '—'}</td>
+              <td className="px-4 py-3 text-slate-500">{locName(m.from_location_id, m.from_location_type)}</td>
+              <td className="px-4 py-3 text-slate-500">{locName(m.to_location_id, m.to_location_type)}</td>
+              <td className="px-4 py-3 font-bold text-slate-700">{m.quantity}</td>
+              {canViewCost && <td className="px-4 py-3 text-slate-600">{formatCurrency(m.unit_cost_price)}</td>}
+              <td className="px-4 py-3 text-xs text-slate-400">{formatDateTime(m.created_at)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
+  )}
+
+  {showMovement && (
+    <MovementModal
+      warehouses={warehouses}
+      posList={posList}
+      userId={profile?.id ?? null}
+      onClose={() => setShowMovement(false)}
+      onSaved={() => { setShowMovement(false); load(); }}
+    />
+  )}
+</div>
   );
 }
 
@@ -249,7 +249,6 @@ function MovementModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const cat = useCatalog();
   const [type, setType] = useState<MovementType>('stock_in');
   const [variantId, setVariantId] = useState('');
   const [qty, setQty] = useState(1);
@@ -258,7 +257,7 @@ function MovementModal({
   const [toLoc, setToLoc] = useState('');
   const [docRef, setDocRef] = useState('');
   const [notes, setNotes] = useState('');
-  const [variants, setVariants] = useState<(ProductVariant & { product?: Product })[]>([]);
+  const [variants, setVariants] = useState<(ProductVariant & { product: Product | null })[]>([]);
   const [search, setSearch] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -267,7 +266,7 @@ function MovementModal({
       let q = supabase.from('product_variants').select('*, product:products(*)').limit(50);
       if (search) q = q.or(`barcode.ilike.%${search}%,sku.ilike.%${search}%`);
       const { data } = await q;
-      setVariants((data as any) ?? []);
+      setVariants((data as (ProductVariant & { product: Product | null })[]) ?? []);
     }, 200);
     return () => clearTimeout(t);
   }, [search]);
@@ -298,7 +297,6 @@ function MovementModal({
       if (selected.from !== 'none' && fromLoc) { movement.from_location_id = fromLoc; movement.from_location_type = selected.from; }
       if (selected.to !== 'none' && toLoc) { movement.to_location_id = toLoc; movement.to_location_type = selected.to; }
       if (selected.from === 'none' && selected.to === 'none') {
-        // adjustment: use fromLoc as the target
         movement.to_location_id = fromLoc || toLoc;
         movement.to_location_type = 'warehouse';
       }
@@ -306,101 +304,74 @@ function MovementModal({
       const { error } = await supabase.from('stock_movements').insert(movement);
       if (error) throw error;
 
-      // update inventory
-      const targetLocId = movement.to_location_id ?? movement.from_location_id;
-      const targetLocType = movement.to_location_type ?? movement.from_location_type;
-      if (targetLocId && targetLocType) {
-        const delta = ['return_to_wh', 'stock_in', 'adjustment', 'transfer_to_pos', 'transfer_wh', 'pos_receive'].includes(type) ? qty : -qty;
-        const { data: existing } = await supabase.from('inventory').select('*').eq('product_variant_id', variantId).eq('location_id', targetLocId).eq('location_type', targetLocType).maybeSingle();
-        if (existing) {
-          await supabase.from('inventory').update({ quantity: (existing as Inventory).quantity + delta, updated_at: new Date().toISOString() }).eq('id', (existing as Inventory).id);
-        } else {
-          await supabase.from('inventory').insert({ product_variant_id: variantId, location_id: targetLocId, location_type: targetLocType, quantity: delta });
-        }
-        // deduct from source for transfers
-        if (movement.from_location_id && movement.from_location_type && (type === 'transfer_wh' || type === 'transfer_to_pos' || type === 'return_to_wh')) {
-          const { data: src } = await supabase.from('inventory').select('*').eq('product_variant_id', variantId).eq('location_id', movement.from_location_id).eq('location_type', movement.from_location_type).maybeSingle();
-          if (src) {
-            await supabase.from('inventory').update({ quantity: Math.max(0, (src as Inventory).quantity - qty), updated_at: new Date().toISOString() }).eq('id', (src as Inventory).id);
-          }
-        }
-      }
-      toast('تم تسجيل الحركة وتحديث المخزون');
+      toast('تم تسجيل الحركة بنجاح');
       onSaved();
-    } catch (e: any) { toast(e.message, 'error'); } finally { setSaving(false); }
+    } catch (err: any) {
+      toast(err.message, 'error');
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
-    <Modal open onClose={onClose} title="حركة مخزون جديدة" size="lg">
+    <Modal open onClose={onClose} title="تسجيل حركة مخزون" size="lg">
       <div className="space-y-4">
-        <div>
-          <label className="mi-label">نوع الحركة</label>
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
-            {typeOptions.map((t) => (
-              <button key={t.key} onClick={() => { setType(t.key); setFromLoc(''); setToLoc(''); }} className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-semibold ${type === t.key ? 'border-teal-600 bg-teal-50 text-teal-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                <ArrowRightLeft size={15} /> {t.label}
-              </button>
-            ))}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <label className="mi-label">نوع الحركة</label>
+            <select value={type} onChange={(e) => setType(e.target.value as MovementType)} className="mi-input">
+              {typeOptions.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="mi-label">بحث عن منتج</label>
+            <SearchInput value={search} onChange={setSearch} placeholder="باركود أو SKU..." />
           </div>
         </div>
 
         <div>
           <label className="mi-label">المنتج</label>
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ابحث بالباركود أو SKU..." className="mi-input mb-2" dir="ltr" />
-          {variants.length > 0 && (
-            <select value={variantId} onChange={(e) => { setVariantId(e.target.value); const v = variants.find((x) => x.id === e.target.value); if (v) setCost(Number(v.last_cost_price)); }} className="mi-input">
-              <option value="">اختر المنتج</option>
-              {variants.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.product?.name_ar ?? v.product?.name} — {v.barcode ?? v.sku} ({sizeName(v.size_id, cat.sizes)} {colorName(v.color_id, cat.colors)})
-                </option>
-              ))}
-            </select>
-          )}
+          <select value={variantId} onChange={(e) => setVariantId(e.target.value)} className="mi-input">
+            <option value="">اختر المنتج...</option>
+            {variants.map((v) => (
+              <option key={v.id} value={v.id}>{v.product?.name_ar ?? v.product?.name} ({v.barcode})</option>
+            ))}
+          </select>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div><label className="mi-label">الكمية</label><input type="number" min={1} value={qty} onChange={(e) => setQty(Number(e.target.value))} className="mi-input" dir="ltr" /></div>
-          <div><label className="mi-label">سعر التكلفة</label><input type="number" step="0.01" value={cost} onChange={(e) => setCost(Number(e.target.value))} className="mi-input" dir="ltr" /></div>
+        <div className="grid grid-cols-2 gap-4">
+          <div><label className="mi-label">الكمية</label><input type="number" value={qty} onChange={(e) => setQty(Number(e.target.value))} className="mi-input" /></div>
+          <div><label className="mi-label">تكلفة الوحدة</label><input type="number" value={cost} onChange={(e) => setCost(Number(e.target.value))} className="mi-input" /></div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-4">
           {selected.from !== 'none' && (
             <div>
-              <label className="mi-label">المصدر ({selected.from === 'warehouse' ? 'مخزن' : 'نقطة بيع'})</label>
+              <label className="mi-label">من ({selected.from === 'warehouse' ? 'مخزن' : 'نقطة بيع'})</label>
               <select value={fromLoc} onChange={(e) => setFromLoc(e.target.value)} className="mi-input">
-                <option value="">اختر</option>
-                {selected.from === 'warehouse' ? warehouses.map((w) => <option key={w.id} value={w.id}>{w.name_ar ?? w.name}</option>) : posList.map((p) => <option key={p.id} value={p.id}>{p.name_ar ?? p.name}</option>)}
+                <option value="">اختر الموقع...</option>
+                {(selected.from === 'warehouse' ? warehouses : posList).map((l) => <option key={l.id} value={l.id}>{l.name_ar ?? l.name}</option>)}
               </select>
             </div>
           )}
           {selected.to !== 'none' && (
             <div>
-              <label className="mi-label">الوجهة ({selected.to === 'warehouse' ? 'مخزن' : 'نقطة بيع'})</label>
+              <label className="mi-label">إلى ({selected.to === 'warehouse' ? 'مخزن' : 'نقطة بيع'})</label>
               <select value={toLoc} onChange={(e) => setToLoc(e.target.value)} className="mi-input">
-                <option value="">اختر</option>
-                {selected.to === 'warehouse' ? warehouses.map((w) => <option key={w.id} value={w.id}>{w.name_ar ?? w.name}</option>) : posList.map((p) => <option key={p.id} value={p.id}>{p.name_ar ?? p.name}</option>)}
-              </select>
-            </div>
-          )}
-          {selected.from === 'none' && selected.to === 'none' && (
-            <div className="col-span-2">
-              <label className="mi-label">الموقع (للتسوية)</label>
-              <select value={fromLoc} onChange={(e) => setFromLoc(e.target.value)} className="mi-input">
-                <option value="">اختر</option>
-                {warehouses.map((w) => <option key={w.id} value={w.id}>مخزن: {w.name_ar ?? w.name}</option>)}
-                {posList.map((p) => <option key={p.id} value={p.id}>نقطة بيع: {p.name_ar ?? p.name}</option>)}
+                <option value="">اختر الموقع...</option>
+                {(selected.to === 'warehouse' ? warehouses : posList).map((l) => <option key={l.id} value={l.id}>{l.name_ar ?? l.name}</option>)}
               </select>
             </div>
           )}
         </div>
 
-        <div><label className="mi-label">رقم المستند</label><input value={docRef} onChange={(e) => setDocRef(e.target.value)} className="mi-input" dir="ltr" /></div>
+        <div><label className="mi-label">رقم المستند / المرجع</label><input value={docRef} onChange={(e) => setDocRef(e.target.value)} className="mi-input" /></div>
         <div><label className="mi-label">ملاحظات</label><textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="mi-input" rows={2} /></div>
-      </div>
-      <div className="mt-6 flex justify-end gap-2">
-        <button onClick={onClose} className="mi-btn-secondary">إلغاء</button>
-        <button onClick={save} disabled={saving} className="mi-btn-primary">{saving ? <Loader2 size={16} className="animate-spin" /> : <PackageCheck size={16} />} تسجيل</button>
+
+        <div className="flex justify-end gap-3 pt-4">
+          <button onClick={onClose} className="mi-btn-secondary">إلغاء</button>
+          <button onClick={save} disabled={saving} className="mi-btn-primary min-w-[120px]">{saving ? <Loader2 size={18} className="animate-spin" /> : 'حفظ الحركة'}</button>
+        </div>
       </div>
     </Modal>
   );
