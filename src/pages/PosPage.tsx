@@ -5,7 +5,6 @@ import {
   Trash2,
   Plus,
   Minus,
-  X,
   Printer,
   Loader2,
   Store,
@@ -23,7 +22,7 @@ import { Modal } from '@/components/Modal';
 import { toast } from '@/components/Toast';
 import { supabase } from '@/lib/supabase';
 import { useAuth, useCan } from '@/lib/auth';
-import { useCatalog, categoryName, sizeName, colorName } from '@/lib/catalog';
+import { useCatalog, sizeName, colorName } from '@/lib/catalog';
 import { formatCurrency } from '@/lib/format';
 import type { PosLocation, ProductVariant, Product, CashShift, PaymentMethod, Invoice } from '@/lib/types';
 
@@ -338,12 +337,13 @@ export function PosPage() {
         .eq('location_id', activePos.id)
         .eq('location_type', 'pos')
         .maybeSingle();
-      const newQty = Math.max(0, ((inv as any)?.quantity ?? 0) - i.qty);
+      const { id: invId, quantity: invQty } = (inv ?? {}) as { id?: string; quantity?: number };
+      const newQty = Math.max(0, (invQty ?? 0) - i.qty);
       if (inv) {
         await supabase
           .from('inventory')
           .update({ quantity: newQty, updated_at: new Date().toISOString() })
-          .eq('id', (inv as any).id);
+          .eq('id', invId!);
       } else {
         await supabase.from('inventory').insert({
           product_variant_id: i.variantId,
