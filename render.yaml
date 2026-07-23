@@ -2,7 +2,7 @@ services:
   - type: web
     name: miysara-frontend
     env: static
-    buildCommand: pnpm install && pnpm run build
+    buildCommand: pnpm install --no-frozen-lockfile && pnpm run build
     staticPublishPath: ./dist
     routes:
       - type: rewrite
@@ -16,7 +16,7 @@ services:
     name: miysara-backend-api
     env: node
     plan: starter
-    buildCommand: npm install
+    buildCommand: npm install --no-save
     startCommand: node server/index.js
     envVars:
       - key: DATABASE_URL
