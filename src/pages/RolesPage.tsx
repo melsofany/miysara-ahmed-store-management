@@ -6,6 +6,11 @@ import { supabase } from '@/lib/supabase';
 import { useCan } from '@/lib/auth';
 import type { Role, Permission } from '@/lib/types';
 
+interface RolePermissionJoin {
+  role_id: string;
+  permission_id: string;
+}
+
 export function RolesPage() {
   const { can } = useCan();
   const canManage = can('manage_roles');
@@ -27,7 +32,7 @@ export function RolesPage() {
     setPermissions(permsList);
     const permIdMap = new Map(permsList.map((p) => [p.id, p.key]));
     const map: Record<string, Set<string>> = {};
-    (rp ?? []).forEach((r: any) => {
+    ((rp as RolePermissionJoin[]) ?? []).forEach((r) => {
       if (!map[r.role_id]) map[r.role_id] = new Set();
       const key = permIdMap.get(r.permission_id);
       if (key) map[r.role_id].add(key);
