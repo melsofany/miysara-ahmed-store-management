@@ -12,7 +12,7 @@ export function SettingsPage() {
   const [form, setForm] = useState<Record<string, any>>({});
 
   useEffect(() => {
-    supabase.from('companies').select('*').limit(1).single().then(({ data }) => {
+    supabase.from('companies').select('*').limit(1).maybeSingle().then(({ data }) => {
       setForm((data as Record<string, string | number | boolean | null>) ?? {});
       setLoading(false);
     });
