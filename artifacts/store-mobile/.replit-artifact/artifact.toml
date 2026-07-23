@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "ميسرة - إدارة المتجر"
+version = "1.0.0"
+id = "artifacts/store-mobile"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24994
+
+[services.development]
+run = "pnpm --filter @workspace/store-mobile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/store-mobile", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/store-mobile/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24994"
+BASE_PATH = "/"
