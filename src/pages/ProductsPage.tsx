@@ -15,10 +15,12 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { EmptyState } from '@/components/EmptyState';
 import { toast } from '@/components/Toast';
 import { supabase } from '@/lib/supabase';
-import { useCatalog, clearCatalogCache, categoryName, supplierName, manufacturerName, seasonName } from '@/lib/catalog';
+import { useCatalog, clearCatalogCache, categoryName } from '@/lib/catalog';
 import { useCan } from '@/lib/auth';
 import { formatCurrency } from '@/lib/format';
 import type { Product, ProductVariant } from '@/lib/types';
+
+type ProductWithVariants = Product & { variants?: ProductVariant[] };
 
 export function ProductsPage() {
   const { can } = useCan();
@@ -26,7 +28,7 @@ export function ProductsPage() {
   const canViewCost = can('view_cost');
   const cat = useCatalog();
 
-  const [products, setProducts] = useState<(Product & { variants?: ProductVariant[] })[]>([]);
+  const [products, setProducts] = useState<ProductWithVariants[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({
@@ -35,7 +37,7 @@ export function ProductsPage() {
     supplier_id: '',
     manufacturer_id: '',
   });
-  const [editing, setEditing] = useState<(Product & { variants?: ProductVariant[] }) | null>(null);
+  const [editing, setEditing] = useState<ProductWithVariants | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<Product | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -50,7 +52,7 @@ export function ProductsPage() {
     if (search) q = q.or(`name.ilike.%${search}%,name_ar.ilike.%${search}%,sku.ilike.%${search}%,barcode.ilike.%${search}%,description.ilike.%${search}%`);
     const { data, error } = await q;
     if (error) toast(error.message, 'error');
-    setProducts((data as (Product & { variants?: ProductVariant[] })[]) ?? []);
+    setProducts((data as ProductWithVariants[]) ?? []);
     setLoading(false);
   }, [filters, search]);
 
@@ -63,7 +65,7 @@ export function ProductsPage() {
     setEditing(null);
     setShowModal(true);
   }
-  function openEdit(p: Product & { variants?: ProductVariant[] }) {
+  function openEdit(p: ProductWithVariants) {
     setEditing(p);
     setShowModal(true);
   }
@@ -94,7 +96,6 @@ export function ProductsPage() {
         }
       />
 
-      {/* Advanced search & filters */}
       <div className="mi-card mb-4 p-4">
         <div className="relative mb-3">
           <Search size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -164,7 +165,7 @@ export function ProductsPage() {
                 </div>
                 <div className="hidden text-left sm:block">
                   <p className="text-sm font-bold text-teal-700">{formatCurrency(p.default_selling_price)}</p>
-                  {canViewCost && <p className="text-xs text-slate-400">{p.variants?.length ?? 0} متغير</p>}
+                  <p className="text-xs text-slate-400">{p.variants?.length ?? 0} متغير</p>
                 </div>
                 {canManage && (
                   <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
@@ -240,14 +241,13 @@ function ProductModal({
   onClose,
   onSaved,
 }: {
-  product: (Product & { variants?: ProductVariant[] }) | null;
+  product: ProductWithVariants | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const cat = useCatalog();
-  const canViewCost = true; // in modal the manager has access
   const isNew = !product;
-  const [form, setForm] = useState<Record<string, any>>(() =>
+  const [form, setForm] = useState<Partial<Product>>(() =>
     product ?? {
       sku: '',
       barcode: '',
@@ -269,7 +269,7 @@ function ProductModal({
   const [variants, setVariants] = useState<ProductVariant[]>(product?.variants ?? []);
   const [saving, setSaving] = useState(false);
 
-  const set = (k: string, v: any) => setForm((f) => ({ ...f, [k]: v }));
+  const set = (k: keyof Product, v: any) => setForm((f) => ({ ...f, [k]: v }));
 
   async function handleSave() {
     setSaving(true);
@@ -297,7 +297,6 @@ function ProductModal({
         const { error } = await supabase.from('products').update(payload).eq('id', product!.id);
         if (error) throw error;
       }
-      // Save variants
       if (productId && variants.length > 0) {
         const rows = variants.map((v) => ({
           product_id: productId,
@@ -341,7 +340,7 @@ function ProductModal({
     ]);
   }
 
-  function updateVariant(idx: number, key: string, value: any) {
+  function updateVariant(idx: number, key: keyof ProductVariant, value: any) {
     setVariants((vs) => vs.map((v, i) => (i === idx ? { ...v, [key]: value } : v)));
   }
 
@@ -365,106 +364,88 @@ function ProductModal({
           <input value={form.sku ?? ''} onChange={(e) => set('sku', e.target.value)} className="mi-input" dir="ltr" />
         </div>
         <div>
-          <label className="mi-label">الباركود</label>
+          <label className="mi-label">باركود افتراضي</label>
           <input value={form.barcode ?? ''} onChange={(e) => set('barcode', e.target.value)} className="mi-input" dir="ltr" />
-        </div>
-        <div className="md:col-span-2">
-          <label className="mi-label">الوصف</label>
-          <textarea value={form.description ?? ''} onChange={(e) => set('description', e.target.value)} className="mi-input" rows={2} />
         </div>
         <div>
           <label className="mi-label">التصنيف</label>
           <select value={form.category_id ?? ''} onChange={(e) => set('category_id', e.target.value)} className="mi-input">
-            <option value="">—</option>
+            <option value="">اختر التصنيف...</option>
             {cat.categories.map((c) => <option key={c.id} value={c.id}>{c.name_ar ?? c.name}</option>)}
           </select>
         </div>
         <div>
           <label className="mi-label">الموسم</label>
           <select value={form.season_id ?? ''} onChange={(e) => set('season_id', e.target.value)} className="mi-input">
-            <option value="">—</option>
+            <option value="">اختر الموسم...</option>
             {cat.seasons.map((s) => <option key={s.id} value={s.id}>{s.name_ar ?? s.name}</option>)}
           </select>
         </div>
         <div>
           <label className="mi-label">المورد</label>
           <select value={form.supplier_id ?? ''} onChange={(e) => set('supplier_id', e.target.value)} className="mi-input">
-            <option value="">—</option>
+            <option value="">اختر المورد...</option>
             {cat.suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         </div>
         <div>
-          <label className="mi-label">المصنع / البراند</label>
+          <label className="mi-label">المصنع</label>
           <select value={form.manufacturer_id ?? ''} onChange={(e) => set('manufacturer_id', e.target.value)} className="mi-input">
-            <option value="">—</option>
+            <option value="">اختر المصنع...</option>
             {cat.manufacturers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
         </div>
         <div>
           <label className="mi-label">رقم الموديل</label>
-          <input value={form.model_number ?? ''} onChange={(e) => set('model_number', e.target.value)} className="mi-input" dir="ltr" />
-        </div>
-        <div>
-          <label className="mi-label">وحدة القياس</label>
-          <input value={form.unit ?? 'piece'} onChange={(e) => set('unit', e.target.value)} className="mi-input" dir="ltr" />
+          <input value={form.model_number ?? ''} onChange={(e) => set('model_number', e.target.value)} className="mi-input" />
         </div>
         <div>
           <label className="mi-label">سعر البيع الافتراضي</label>
-          <input type="number" step="0.01" value={form.default_selling_price ?? 0} onChange={(e) => set('default_selling_price', e.target.value)} className="mi-input" dir="ltr" />
-        </div>
-        <div>
-          <label className="mi-label">الحد الأدنى للمخزون</label>
-          <input type="number" value={form.min_stock_level ?? 0} onChange={(e) => set('min_stock_level', e.target.value)} className="mi-input" dir="ltr" />
-        </div>
-        <div>
-          <label className="mi-label">رابط الصورة</label>
-          <input value={form.image_url ?? ''} onChange={(e) => set('image_url', e.target.value)} className="mi-input" dir="ltr" />
+          <input type="number" value={form.default_selling_price ?? 0} onChange={(e) => set('default_selling_price', e.target.value)} className="mi-input" />
         </div>
       </div>
 
-      {/* Variants */}
-      <div className="mt-6 rounded-xl border border-slate-200 p-4">
+      <div className="mt-6 border-t pt-4">
         <div className="mb-3 flex items-center justify-between">
-          <h4 className="flex items-center gap-2 font-bold text-slate-700">
-            <Layers size={18} /> المتغيرات (المقاسات والألوان)
-          </h4>
-          <button onClick={addVariant} className="mi-btn-secondary text-xs">
-            <Plus size={14} /> إضافة متغير
-          </button>
+          <h4 className="font-bold text-slate-700">المتغيرات (المقاسات والألوان)</h4>
+          <button onClick={addVariant} className="mi-btn-secondary py-1 text-xs"><Plus size={14} /> إضافة متغير</button>
         </div>
-        {variants.length === 0 ? (
-          <p className="py-3 text-center text-sm text-slate-400">
-            بدون متغيرات — سيُستخدم السعر الافتراضي لكل المخزون.
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {variants.map((v, idx) => (
-              <div key={idx} className="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-2 md:grid-cols-6">
-                <select value={v.size_id ?? ''} onChange={(e) => updateVariant(idx, 'size_id', e.target.value || null)} className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm">
-                  <option value="">المقاس</option>
+        <div className="space-y-3">
+          {variants.map((v, i) => (
+            <div key={i} className="flex flex-wrap items-end gap-3 rounded-xl bg-slate-50 p-3">
+              <div className="flex-1 min-w-[120px]">
+                <label className="text-[10px] font-bold text-slate-400">المقاس</label>
+                <select value={v.size_id ?? ''} onChange={(e) => updateVariant(i, 'size_id', e.target.value)} className="mi-input py-1 text-xs">
+                  <option value="">—</option>
                   {cat.sizes.map((s) => <option key={s.id} value={s.id}>{s.name_ar ?? s.name}</option>)}
                 </select>
-                <select value={v.color_id ?? ''} onChange={(e) => updateVariant(idx, 'color_id', e.target.value || null)} className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm">
-                  <option value="">اللون</option>
+              </div>
+              <div className="flex-1 min-w-[120px]">
+                <label className="text-[10px] font-bold text-slate-400">اللون</label>
+                <select value={v.color_id ?? ''} onChange={(e) => updateVariant(i, 'color_id', e.target.value)} className="mi-input py-1 text-xs">
+                  <option value="">—</option>
                   {cat.colors.map((c) => <option key={c.id} value={c.id}>{c.name_ar ?? c.name}</option>)}
                 </select>
-                <input value={v.barcode ?? ''} onChange={(e) => updateVariant(idx, 'barcode', e.target.value)} placeholder="باركود" className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm" dir="ltr" />
-                <input type="number" step="0.01" value={v.cost_price ?? 0} onChange={(e) => updateVariant(idx, 'cost_price', e.target.value)} placeholder="التكلفة" className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm" dir="ltr" />
-                <input type="number" step="0.01" value={v.selling_price ?? 0} onChange={(e) => updateVariant(idx, 'selling_price', e.target.value)} placeholder="سعر البيع" className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm" dir="ltr" />
-                <button onClick={() => removeVariant(idx)} className="flex items-center justify-center rounded-lg bg-red-50 p-2 text-red-600 hover:bg-red-100">
-                  <X size={16} />
-                </button>
               </div>
-            ))}
-          </div>
-        )}
+              <div className="flex-1 min-w-[100px]">
+                <label className="text-[10px] font-bold text-slate-400">الباركود</label>
+                <input value={v.barcode ?? ''} onChange={(e) => updateVariant(i, 'barcode', e.target.value)} className="mi-input py-1 text-xs" />
+              </div>
+              <div className="w-24">
+                <label className="text-[10px] font-bold text-slate-400">سعر البيع</label>
+                <input type="number" value={v.selling_price} onChange={(e) => updateVariant(i, 'selling_price', e.target.value)} className="mi-input py-1 text-xs" />
+              </div>
+              <button onClick={() => removeVariant(i)} className="mb-1 rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"><X size={16} /></button>
+            </div>
+          ))}
+          {variants.length === 0 && <p className="py-4 text-center text-sm text-slate-400 italic">لا توجد متغيرات لهذا المنتج. سيتم استخدام البيانات الافتراضية.</p>}
+        </div>
       </div>
 
-      <div className="mt-6 flex justify-end gap-2">
+      <div className="mt-8 flex justify-end gap-3">
         <button onClick={onClose} className="mi-btn-secondary">إلغاء</button>
-        <button onClick={handleSave} disabled={saving} className="mi-btn-primary">
-          {saving ? <Loader2 size={16} className="animate-spin" /> : null}
-          حفظ
+        <button onClick={handleSave} disabled={saving} className="mi-btn-primary min-w-[140px]">
+          {saving ? <Loader2 size={18} className="animate-spin" /> : isNew ? 'إضافة المنتج' : 'حفظ التعديلات'}
         </button>
       </div>
     </Modal>
