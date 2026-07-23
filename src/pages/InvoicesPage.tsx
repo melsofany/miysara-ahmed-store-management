@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Receipt, Loader2, Search, Eye, Undo2, Ban } from 'lucide-react';
+import { Receipt, Loader2, Eye, Ban } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { SearchInput, FilterBar, Field } from '@/components/Form';
 import { EmptyState } from '@/components/EmptyState';
@@ -9,7 +9,7 @@ import { toast } from '@/components/Toast';
 import { supabase } from '@/lib/supabase';
 import { useCan, useAuth } from '@/lib/auth';
 import { formatCurrency, formatDateTime } from '@/lib/format';
-import type { Invoice, PosLocation, Profile } from '@/lib/types';
+import type { Invoice, PosLocation, Profile, Payment } from '@/lib/types';
 
 const statusLabels: Record<string, string> = {
   open: 'مفتوحة',
@@ -31,7 +31,7 @@ export function InvoicesPage() {
   const { can } = useCan();
   const { profile } = useAuth();
   const canCancel = can('cancel_invoices');
-  const [invoices, setInvoices] = useState<(Invoice & { pos_location?: PosLocation; cashier?: Profile })[]>([]);
+  const [invoices, setInvoices] = useState<(Invoice & { pos_location?: PosLocation; cashier?: Profile; payments?: Payment[] })[]>([]);
   const [posList, setPosList] = useState<PosLocation[]>([]);
   const [users, setUsers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,7 +53,7 @@ export function InvoicesPage() {
     if (filters.to) q = q.lte('created_at', filters.to + 'T23:59:59');
     if (search) q = q.or(`invoice_number.ilike.%${search}%`);
     const { data } = await q;
-    setInvoices((data as any) ?? []);
+    setInvoices((data as (Invoice & { pos_location?: PosLocation; cashier?: Profile; payments?: Payment[] })[]) ?? []);
 
     const [{ data: pos }, { data: us }] = await Promise.all([
       supabase.from('pos_locations').select('*'),
@@ -118,7 +118,7 @@ export function InvoicesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {invoices.filter((inv) => !filters.method || ((inv as any).payments ?? []).some((p: { method: string }) => p.method === filters.method)).map((inv) => (
+              {invoices.filter((inv) => !filters.method || (inv.payments ?? []).some((p) => p.method === filters.method)).map((inv) => (
                 <tr key={inv.id} className="hover:bg-slate-50">
                   <td className="px-4 py-3 font-bold text-slate-700" dir="ltr">{inv.invoice_number}</td>
                   <td className="px-4 py-3 text-slate-600">{inv.pos_location?.name_ar ?? inv.pos_location?.name ?? '—'}</td>
