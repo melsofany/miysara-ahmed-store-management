@@ -10,11 +10,13 @@ import { formatCurrency, formatDateTime } from '@/lib/format';
 import { StatCard } from '@/components/StatCard';
 import type { CashShift, PosLocation, Profile } from '@/lib/types';
 
+type CashShiftWithRelations = CashShift & { pos_location: PosLocation | null; user: Profile | null };
+
 export function ShiftsPage() {
   const { can } = useCan();
   const { profile } = useAuth();
   const canManage = can('manage_shifts');
-  const [shifts, setShifts] = useState<(CashShift & { pos_location?: PosLocation; user?: Profile })[]>([]);
+  const [shifts, setShifts] = useState<CashShiftWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   const [closeTarget, setCloseTarget] = useState<CashShift | null>(null);
 
@@ -25,7 +27,7 @@ export function ShiftsPage() {
       .select('*, pos_location:pos_locations(*), user:profiles(*)')
       .order('opened_at', { ascending: false })
       .limit(100);
-    setShifts((data as any) ?? []);
+    setShifts((data as CashShiftWithRelations[]) ?? []);
     setLoading(false);
   }, []);
 
