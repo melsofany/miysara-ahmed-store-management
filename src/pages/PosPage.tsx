@@ -332,18 +332,28 @@ export function PosPage() {
         document_ref: invoiceNumber,
         user_id: profile.id,
       });
+      // Upsert inventory: deduct sold qty, or create row at 0 if missing
       const { data: inv } = await supabase
         .from('inventory')
-        .select('*')
+        .select('id, quantity')
         .eq('product_variant_id', i.variantId)
         .eq('location_id', activePos.id)
         .eq('location_type', 'pos')
         .maybeSingle();
+      const newQty = Math.max(0, ((inv as any)?.quantity ?? 0) - i.qty);
       if (inv) {
         await supabase
           .from('inventory')
-          .update({ quantity: Math.max(0, (inv as any).quantity - i.qty), updated_at: new Date().toISOString() })
+          .update({ quantity: newQty, updated_at: new Date().toISOString() })
           .eq('id', (inv as any).id);
+      } else {
+        // No inventory row yet — create one at 0 (item sold from untracked stock)
+        await supabase.from('inventory').insert({
+          product_variant_id: i.variantId,
+          location_id: activePos.id,
+          location_type: 'pos',
+          quantity: 0,
+        });
       }
     }
 

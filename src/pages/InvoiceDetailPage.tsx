@@ -193,9 +193,27 @@ function ReturnModal({ invoice, userId, onClose, onSaved }: { invoice: Invoice &
           document_ref: returnNumber,
           user_id: userId,
         });
-        const { data: inv } = await supabase.from('inventory').select('*').eq('product_variant_id', ri.product_variant_id).eq('location_id', invoice.pos_location_id).eq('location_type', 'pos').maybeSingle();
+        // Upsert inventory: restore returned qty, or create row if missing
+        const { data: inv } = await supabase
+          .from('inventory')
+          .select('id, quantity')
+          .eq('product_variant_id', ri.product_variant_id)
+          .eq('location_id', invoice.pos_location_id)
+          .eq('location_type', 'pos')
+          .maybeSingle();
         if (inv) {
-          await supabase.from('inventory').update({ quantity: (inv as any).quantity + ri.quantity }).eq('id', (inv as any).id);
+          await supabase
+            .from('inventory')
+            .update({ quantity: (inv as any).quantity + ri.quantity, updated_at: new Date().toISOString() })
+            .eq('id', (inv as any).id);
+        } else {
+          // No inventory row — create one with the returned quantity
+          await supabase.from('inventory').insert({
+            product_variant_id: ri.product_variant_id,
+            location_id: invoice.pos_location_id,
+            location_type: 'pos',
+            quantity: ri.quantity,
+          });
         }
       }
 
