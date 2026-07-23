@@ -60,22 +60,6 @@ export async function fetchDashboard(
   range: DateRange,
   posId?: string
 ): Promise<DashboardMetrics> {
-  const empty: DashboardMetrics = {
-    totalSales: 0,
-    invoiceCount: 0,
-    avgInvoice: 0,
-    totalReturns: 0,
-    totalDiscount: 0,
-    estimatedProfit: 0,
-    stockCostValue: 0,
-    stockSellValue: 0,
-    posBreakdown: [],
-    topProducts: [],
-    lowProducts: [],
-    categorySales: [],
-    userSales: [],
-  };
-
   let posQuery = supabase
     .from('invoices')
     .select('id, pos_location_id, cashier_id, total, discount_amount, status, created_at')
