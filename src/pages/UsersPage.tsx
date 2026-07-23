@@ -104,11 +104,6 @@ export function UsersPage() {
   );
 }
 
-/**
- * Creates a new user via supabase.auth.signUp, then immediately restores
- * the admin's session (in case Supabase auto-confirms the new user and
- * overwrites the active session).
- */
 function CreateUserModal({ roles, onClose, onSaved }: { roles: Role[]; onClose: () => void; onSaved: () => void }) {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -124,20 +119,14 @@ function CreateUserModal({ roles, onClose, onSaved }: { roles: Role[]; onClose: 
     }
     setSaving(true);
     try {
-      // 1. Fetch company id dynamically
       const { data: company } = await supabase.from('companies').select('id').limit(1).maybeSingle();
       const companyId = company?.id ?? null;
 
-      // 2. Save the current admin session BEFORE signing up a new user.
-      //    If Supabase has "Confirm email" disabled, signUp will auto-login
-      //    the new user and overwrite our session — we must restore it.
       const { data: { session: adminSession } } = await supabase.auth.getSession();
 
-      // 3. Create the new auth user
       const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({ email, password });
       if (signUpErr) throw signUpErr;
 
-      // 4. Immediately restore admin session (if it existed and was replaced)
       if (adminSession) {
         await supabase.auth.setSession({
           access_token: adminSession.access_token,
@@ -145,7 +134,6 @@ function CreateUserModal({ roles, onClose, onSaved }: { roles: Role[]; onClose: 
         });
       }
 
-      // 5. Create profile for the new user (now with admin auth restored)
       if (signUpData.user) {
         const { error: profErr } = await supabase.from('profiles').upsert({
           id: signUpData.user.id,
