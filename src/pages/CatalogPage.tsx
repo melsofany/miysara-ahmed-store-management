@@ -317,7 +317,8 @@ function EntityModal({
   const isNew = entity._new;
   const [form, setForm] = useState<CatalogFormData>(() => {
     if (isNew) return { is_active: true, sort_order: 0 };
-    const { _new: _, ...rest } = entity;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { _new, ...rest } = entity;
     return rest as CatalogFormData;
   });
 
