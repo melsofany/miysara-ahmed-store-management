@@ -33,7 +33,7 @@ export function InvoiceDetailPage() {
         .select('*, pos_location:pos_locations(*), cashier:profiles(*), invoice_items(*), payments(*)')
         .eq('id', id)
         .maybeSingle();
-      setInvoice(data as any);
+      setInvoice(data as Invoice & { pos_location?: PosLocation; cashier?: Profile; invoice_items?: InvoiceItem[]; payments?: Payment[] });
       setLoading(false);
     })();
   }, [id]);
@@ -202,10 +202,11 @@ function ReturnModal({ invoice, userId, onClose, onSaved }: { invoice: Invoice &
           .eq('location_type', 'pos')
           .maybeSingle();
         if (inv) {
+          const { id: invId, quantity: invQty } = inv as { id: string; quantity: number };
           await supabase
             .from('inventory')
-            .update({ quantity: (inv as any).quantity + ri.quantity, updated_at: new Date().toISOString() })
-            .eq('id', (inv as any).id);
+            .update({ quantity: invQty + ri.quantity, updated_at: new Date().toISOString() })
+            .eq('id', invId);
         } else {
           // No inventory row — create one with the returned quantity
           await supabase.from('inventory').insert({
@@ -227,7 +228,7 @@ function ReturnModal({ invoice, userId, onClose, onSaved }: { invoice: Invoice &
 
       toast('تم معالجة المرتجع بنجاح');
       onSaved();
-    } catch (e: any) { toast(e.message, 'error'); } finally { setSaving(false); }
+    } catch (e: unknown) { toast(e instanceof Error ? e.message : 'حدث خطأ', 'error'); } finally { setSaving(false); }
   }
 
   return (
