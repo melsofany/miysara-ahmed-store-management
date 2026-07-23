@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { ScrollText, Loader2, Search } from 'lucide-react';
+import { ScrollText, Loader2 } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { SearchInput } from '@/components/Form';
 import { EmptyState } from '@/components/EmptyState';
@@ -21,7 +21,7 @@ export function AuditPage() {
       .limit(300);
     if (search) q = q.or(`action.ilike.%${search}%,entity.ilike.%${search}%`);
     const { data } = await q;
-    setLogs((data as any) ?? []);
+    setLogs((data as (AuditLog & { user?: Profile })[]) ?? []);
     setLoading(false);
   }, [search]);
 
