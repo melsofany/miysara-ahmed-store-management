@@ -3,7 +3,7 @@
  */
 import { Router } from 'express';
 import { pool } from '../db.js';
-import { requireAuth } from '../middleware/auth.js';
+import { getOperationalUserId, requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -44,10 +44,25 @@ router.post('/', requireAuth, async (req, res) => {
   const { table, operation, data, filters } = req.body || {};
   try {
     validateTable(table);
+    const operationalUserId = req.user?.envAdmin ? await getOperationalUserId(req) : req.user?.userId;
+    if (req.user?.envAdmin && !operationalUserId && ['insert', 'upsert'].includes(operation)) {
+      return res.status(503).json({ data: null, error: { message: 'لا يوجد موظف نشط لتسجيل العملية' } });
+    }
+    const replaceEnvAdminId = (value) =>
+      req.user?.envAdmin && value === req.user.userId ? operationalUserId : value;
+    const normalizedData = Array.isArray(data)
+      ? data.map((row) => normalizeRow(row, replaceEnvAdminId))
+      : normalizeRow(data, replaceEnvAdminId);
+    const normalizedFilters = (filters || []).map((filter) => ({
+      ...filter,
+      value: ['user_id', 'cashier_id'].includes(filter.column) && filter.type === 'eq'
+        ? replaceEnvAdminId(filter.value)
+        : filter.value,
+    }));
     let result;
 
     if (operation === 'insert') {
-      const rows = Array.isArray(data) ? data : [data];
+      const rows = Array.isArray(normalizedData) ? normalizedData : [normalizedData];
       const inserted = [];
       for (const row of rows) {
         const keys = Object.keys(row);
@@ -63,11 +78,11 @@ router.post('/', requireAuth, async (req, res) => {
       result = { data: inserted.length === 1 ? inserted[0] : inserted, error: null };
 
     } else if (operation === 'update') {
-      const keys = Object.keys(data);
-      const vals = Object.values(data);
+      const keys = Object.keys(normalizedData);
+      const vals = Object.values(normalizedData);
       const sets = keys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
       const params = [...vals];
-      const whereClauses = buildWhere(filters, params);
+      const whereClauses = buildWhere(normalizedFilters, params);
       let sql = `UPDATE "${table}" SET ${sets}`;
       if (whereClauses.length) sql += ` WHERE ${whereClauses.join(' AND ')}`;
       sql += ' RETURNING *';
@@ -76,7 +91,7 @@ router.post('/', requireAuth, async (req, res) => {
 
     } else if (operation === 'delete') {
       const params = [];
-      const whereClauses = buildWhere(filters, params);
+      const whereClauses = buildWhere(normalizedFilters, params);
       let sql = `DELETE FROM "${table}"`;
       if (whereClauses.length) sql += ` WHERE ${whereClauses.join(' AND ')}`;
       sql += ' RETURNING *';
@@ -84,7 +99,7 @@ router.post('/', requireAuth, async (req, res) => {
       result = { data: r, error: null };
 
     } else if (operation === 'upsert') {
-      const rows = Array.isArray(data) ? data : [data];
+      const rows = Array.isArray(normalizedData) ? normalizedData : [normalizedData];
       const inserted = [];
       for (const row of rows) {
         const keys = Object.keys(row);
@@ -111,5 +126,15 @@ router.post('/', requireAuth, async (req, res) => {
     res.status(500).json({ data: null, error: { message: e.message } });
   }
 });
+
+function normalizeRow(row, replaceEnvAdminId) {
+  if (!row || typeof row !== 'object') return row;
+  return Object.fromEntries(
+    Object.entries(row).map(([key, value]) => [
+      key,
+      ['user_id', 'cashier_id'].includes(key) ? replaceEnvAdminId(value) : value,
+    ])
+  );
+}
 
 export default router;

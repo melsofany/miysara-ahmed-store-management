@@ -10,6 +10,32 @@ import type { Profile, Role } from './types';
 
 // Use the local session type — no longer depends on @supabase/supabase-js
 type Session = LocalSession;
+const ENV_ADMIN_PROFILE_ID = '00000000-0000-0000-0000-000000000001';
+const ENV_ADMIN_ROLE_ID = '00000000-0000-0000-0000-000000000002';
+const ENV_ADMIN_ROLE: Role = {
+  id: ENV_ADMIN_ROLE_ID,
+  key: 'super_admin',
+  name: 'Environment Administrator',
+  name_ar: 'مدير النظام البيئي',
+  description: 'حساب مدير محفوظ في متغيرات البيئة',
+  is_system: true,
+};
+const ENV_ADMIN_PERMISSIONS = ['*'];
+
+function getEnvAdminProfile(email: string): Profile {
+  return {
+    id: ENV_ADMIN_PROFILE_ID,
+    company_id: null,
+    role_id: ENV_ADMIN_ROLE_ID,
+    role: ENV_ADMIN_ROLE,
+    full_name: 'مدير النظام البيئي',
+    full_name_ar: 'مدير النظام البيئي',
+    email,
+    phone: null,
+    is_active: true,
+    can_view_cost: true,
+  };
+}
 
 interface AuthContextValue {
   session: Session | null;
@@ -61,6 +87,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  function loadEnvironmentAdmin(email: string) {
+    setProfile(getEnvAdminProfile(email));
+    setRole(ENV_ADMIN_ROLE);
+    setPermissions(ENV_ADMIN_PERMISSIONS);
+  }
+
   useEffect(() => {
     let mounted = true;
 
@@ -68,7 +100,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!mounted) return;
       setSession(sess);
       if (sess) {
-        loadProfile(sess.user.id).finally(() => {
+        const profileLoad = sess.user.isEnvAdmin
+          ? Promise.resolve(loadEnvironmentAdmin(sess.user.email))
+          : loadProfile(sess.user.id);
+        profileLoad.finally(() => {
           if (mounted) setLoading(false);
         });
       } else {
@@ -99,7 +134,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function refreshProfile() {
-    if (session) await loadProfile(session.user.id);
+    if (!session) return;
+    if (session.user.isEnvAdmin) {
+      loadEnvironmentAdmin(session.user.email);
+      return;
+    }
+    await loadProfile(session.user.id);
   }
 
   return (
@@ -129,9 +169,12 @@ export function useAuth() {
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function useCan() {
-  const { permissions, role } = useAuth();
+  const { permissions, role, session } = useAuth();
   return {
-    can: (perm: string) => role?.key === 'super_admin' || permissions.includes(perm),
-    isSuperAdmin: role?.key === 'super_admin',
+    can: (perm: string) =>
+      Boolean(session?.user.isEnvAdmin)
+      || role?.key === 'super_admin'
+      || permissions.includes(perm),
+    isSuperAdmin: role?.key === 'super_admin' || Boolean(session?.user.isEnvAdmin),
   };
 }

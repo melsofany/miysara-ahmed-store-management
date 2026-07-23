@@ -4,7 +4,7 @@
  */
 import { Router } from 'express';
 import { pool } from '../db.js';
-import { requireAuth } from '../middleware/auth.js';
+import { getOperationalUserId, requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -209,10 +209,20 @@ async function resolveJoins(rows, table, joins) {
 
 // POST /api/query
 router.post('/', requireAuth, async (req, res) => {
-  const { table, select, filters, order, limit, single } = req.body || {};
+  const { table, select, filters: requestFilters, order, limit, single } = req.body || {};
   try {
     validateTable(table);
     const { columns, joins } = parseSelect(select || '*');
+    const filters = (requestFilters || []).map((filter) => ({ ...filter }));
+    if (req.user?.envAdmin) {
+      const operationalUserId = await getOperationalUserId(req);
+      for (const filter of filters) {
+        if (['user_id', 'cashier_id'].includes(filter.column)
+          && filter.type === 'eq' && filter.value === req.user.userId) {
+          filter.value = operationalUserId;
+        }
+      }
+    }
     const params = [];
     const whereClauses = buildWhere(filters, params);
 

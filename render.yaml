@@ -14,3 +14,7 @@ services:
         generateValue: true  # Render auto-generates a secure random value
       - key: NODE_ENV
         value: production
+      - key: ADMIN_EMAIL
+        sync: false          # set securely in Render dashboard
+      - key: ADMIN_PASSWORD
+        sync: false          # set securely in Render dashboard

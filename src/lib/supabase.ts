@@ -22,7 +22,7 @@ function authHeaders(): Record<string, string> {
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export interface LocalSession {
-  user: { id: string; email: string };
+  user: { id: string; email: string; isEnvAdmin?: boolean };
   access_token: string;
 }
 
@@ -55,9 +55,10 @@ function setSession(session: LocalSession | null) {
 const _storedToken = localStorage.getItem('auth_token');
 const _storedUserId = localStorage.getItem('auth_user_id');
 const _storedEmail = localStorage.getItem('auth_email');
+const _storedIsEnvAdmin = localStorage.getItem('auth_env_admin') === 'true';
 if (_storedToken && _storedUserId) {
   currentSession = {
-    user: { id: _storedUserId, email: _storedEmail || '' },
+    user: { id: _storedUserId, email: _storedEmail || '', isEnvAdmin: _storedIsEnvAdmin },
     access_token: _storedToken,
   };
 }
@@ -213,12 +214,13 @@ const auth = {
       const json = await res.json();
       if (!res.ok) return { data: null, error: { message: json.error } };
       const session: LocalSession = {
-        user: { id: json.userId, email },
+        user: { id: json.userId, email: json.email || email, isEnvAdmin: Boolean(json.isEnvAdmin) },
         access_token: json.token,
       };
       localStorage.setItem('auth_token', json.token);
       localStorage.setItem('auth_user_id', json.userId);
-      localStorage.setItem('auth_email', email);
+      localStorage.setItem('auth_email', json.email || email);
+      localStorage.setItem('auth_env_admin', String(Boolean(json.isEnvAdmin)));
       setSession(session);
       return { data: { session, user: session.user }, error: null };
     } catch (e) {
@@ -259,6 +261,7 @@ const auth = {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user_id');
     localStorage.removeItem('auth_email');
+    localStorage.removeItem('auth_env_admin');
     setSession(null);
     return { error: null };
   },

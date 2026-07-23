@@ -1,17 +1,45 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { timingSafeEqual } from 'node:crypto';
 import { pool } from '../db.js';
-import { requireAuth, requirePermission, JWT_SECRET } from '../middleware/auth.js';
+import { requireAuth, requirePermission, ENV_ADMIN_USER_ID, JWT_SECRET } from '../middleware/auth.js';
 
 const router = Router();
 const JWT_EXPIRES = '7d';
+function matchesSecret(input, expected) {
+  if (!input || !expected) return false;
+  const inputBuffer = Buffer.from(input);
+  const expectedBuffer = Buffer.from(expected);
+  return inputBuffer.length === expectedBuffer.length
+    && timingSafeEqual(inputBuffer, expectedBuffer);
+}
 
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'البريد والكلمة مطلوبان' });
   try {
+    const configuredAdminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+    if (configuredAdminEmail === email.trim().toLowerCase()
+      && matchesSecret(password, process.env.ADMIN_PASSWORD)) {
+      const token = jwt.sign(
+        {
+          userId: ENV_ADMIN_USER_ID,
+          email: configuredAdminEmail,
+          envAdmin: true,
+        },
+        JWT_SECRET,
+        { expiresIn: JWT_EXPIRES }
+      );
+      return res.json({
+        token,
+        userId: ENV_ADMIN_USER_ID,
+        email: configuredAdminEmail,
+        isEnvAdmin: true,
+      });
+    }
+
     const { rows } = await pool.query(
       'SELECT * FROM auth_credentials WHERE email = $1',
       [email.toLowerCase()]
@@ -84,7 +112,11 @@ router.post('/employees', requireAuth, requirePermission('manage_users'), async 
 
 // GET /api/auth/me
 router.get('/me', requireAuth, (req, res) => {
-  res.json({ userId: req.user.userId, email: req.user.email });
+  res.json({
+    userId: req.user.userId,
+    email: req.user.email,
+    isEnvAdmin: Boolean(req.user.envAdmin),
+  });
 });
 
 export default router;
