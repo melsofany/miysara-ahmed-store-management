@@ -67,23 +67,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return;
-      setSession(data.session);
-      if (data.session) {
-        loadProfile(data.session.user.id).finally(() => mounted && setLoading(false));
-      } else {
-        setLoading(false);
-      }
-    });
-
+    // Use onAuthStateChange exclusively — it fires INITIAL_SESSION on mount,
+    // which covers the same case as getSession(). Using both causes a double
+    // loadProfile call on every app startup.
     const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
+      if (!mounted) return;
       setSession(sess);
       if (sess) {
-        (async () => {
-          await loadProfile(sess.user.id);
+        loadProfile(sess.user.id).finally(() => {
           if (mounted) setLoading(false);
-        })();
+        });
       } else {
         setProfile(null);
         setRole(null);
