@@ -92,11 +92,18 @@ function WarehouseModal({ item, onClose, onSaved }: { item: Warehouse | null; on
     setSaving(true);
     try {
       if (!form.name || !form.code) { toast('الاسم والكود مطلوبان', 'error'); setSaving(false); return; }
-      const { error } = item ? await supabase.from('warehouses').update(form).eq('id', item.id) : await supabase.from('warehouses').insert({ ...form, company_id: '00000000-0000-0000-0000-000000000001' });
-      if (error) throw error;
+      if (item) {
+        const { error } = await supabase.from('warehouses').update(form).eq('id', item.id);
+        if (error) throw error;
+      } else {
+        // Fetch company_id dynamically instead of hardcoding it
+        const { data: company } = await supabase.from('companies').select('id').limit(1).maybeSingle();
+        const { error } = await supabase.from('warehouses').insert({ ...form, company_id: company?.id ?? null });
+        if (error) throw error;
+      }
       toast(item ? 'تم التحديث' : 'تم الإضافة');
       onSaved();
-    } catch (e: any) { toast(e.message, 'error'); } finally { setSaving(false); }
+    } catch (e: unknown) { toast(e instanceof Error ? e.message : 'حدث خطأ', 'error'); } finally { setSaving(false); }
   }
 
   return (
