@@ -43,10 +43,12 @@ export function ReportsPage() {
       const { data: invoices } = await q;
 
       const invoiceIds = (invoices ?? []).map((i) => i.id);
-      const { data: items } = await supabase
-        .from('invoice_items')
-        .select('product_name, quantity, unit_price, unit_cost_price, line_total, invoice_id, product_variant_id')
-        .in('invoice_id', invoiceIds.length ? invoiceIds : ['00000000-0000-0000-0000-000000000000']);
+      const { data: items } = invoiceIds.length > 0
+        ? await supabase
+            .from('invoice_items')
+            .select('product_name, quantity, unit_price, unit_cost_price, line_total, invoice_id, product_variant_id')
+            .in('invoice_id', invoiceIds)
+        : { data: [] };
 
       const posMap = new Map(posList.map((p) => [p.id, p]));
       const userMap = new Map(users.map((u) => [u.id, u]));
