@@ -5,9 +5,11 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import type { Session } from '@supabase/supabase-js';
-import { supabase } from './supabase';
+import { supabase, type LocalSession } from './supabase';
 import type { Profile, Role } from './types';
+
+// Use the local session type — no longer depends on @supabase/supabase-js
+type Session = LocalSession;
 
 interface AuthContextValue {
   session: Session | null;
@@ -67,9 +69,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    // Use onAuthStateChange exclusively — it fires INITIAL_SESSION on mount,
-    // which covers the same case as getSession(). Using both causes a double
-    // loadProfile call on every app startup.
     const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
       if (!mounted) return;
       setSession(sess);
@@ -89,6 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mounted = false;
       sub.subscription.unsubscribe();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function signIn(email: string, password: string) {
@@ -97,27 +97,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signUp(email: string, password: string, fullName: string) {
-    // Fetch the company ID dynamically instead of hardcoding it
+    // Fetch the company ID dynamically
     const { data: company } = await supabase
       .from('companies')
       .select('id')
       .limit(1)
       .maybeSingle();
-    const companyId = company?.id ?? null;
+    const companyId = (company as { id?: string } | null)?.id ?? null;
 
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) return { error: error.message };
-    if (data.user) {
-      const { error: profErr } = await supabase.from('profiles').insert({
-        id: data.user.id,
-        email,
-        full_name: fullName,
-        role_id: null,
-        company_id: companyId,
-        can_view_cost: false,
-      });
-      if (profErr) return { error: profErr.message };
-    }
+    // Call the backend signup endpoint directly (includes password hashing)
+    const res = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, fullName, companyId }),
+    });
+    const json = await res.json();
+    if (!res.ok) return { error: json.error || 'حدث خطأ أثناء التسجيل' };
     return { error: null };
   }
 
