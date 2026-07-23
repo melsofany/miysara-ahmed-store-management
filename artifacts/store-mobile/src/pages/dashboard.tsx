@@ -1,12 +1,32 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useLocation } from 'wouter';
 import { useDashboardStats } from '@/hooks/use-store';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DollarSign, ShoppingBag, Package, AlertTriangle, TrendingUp, Calendar, FileText } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function Dashboard() {
-  const { data: stats, isLoading } = useDashboardStats();
+  const { isCashier } = useAuth();
+  const [, setLocation] = useLocation();
+  const { data: stats, isLoading, error } = useDashboardStats();
+
+  // Redirect cashiers to POS immediately
+  useEffect(() => {
+    if (isCashier) {
+      setLocation('/pos');
+    }
+  }, [isCashier, setLocation]);
+
+  // If API returns a permission error, redirect to POS as fallback
+  useEffect(() => {
+    if (error && (error as any)?.message?.includes('صلاحية')) {
+      setLocation('/pos');
+    }
+  }, [error, setLocation]);
+
+  if (isCashier) return null;
 
   if (isLoading) {
     return (

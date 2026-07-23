@@ -5,6 +5,9 @@ interface User {
   id: string;
   email: string;
   full_name?: string;
+  role?: string;
+  roles?: string[];
+  permissions?: string[];
 }
 
 interface AuthContextType {
@@ -13,6 +16,17 @@ interface AuthContextType {
   login: (token: string, user: User) => void;
   logout: () => void;
   isLoading: boolean;
+  isCashier: boolean;
+}
+
+function detectCashier(user: User): boolean {
+  const cashierKeywords = ['cashier', 'كاشير', 'pos', 'sales'];
+  const role = (user.role || '').toLowerCase();
+  const roles = (user.roles || []).map(r => r.toLowerCase());
+  return (
+    cashierKeywords.some(k => role.includes(k)) ||
+    cashierKeywords.some(k => roles.some(r => r.includes(k)))
+  );
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -53,7 +67,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('auth_user', JSON.stringify(newUser));
     setToken(newToken);
     setUser(newUser);
-    setLocation('/');
+    // Cashiers go directly to POS; everyone else goes to dashboard
+    if (detectCashier(newUser)) {
+      setLocation('/pos');
+    } else {
+      setLocation('/');
+    }
   };
 
   const logout = () => {
@@ -64,8 +83,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLocation('/login');
   };
 
+  const isCashier = user ? detectCashier(user) : false;
+
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, token, login, logout, isLoading, isCashier }}>
       {children}
     </AuthContext.Provider>
   );

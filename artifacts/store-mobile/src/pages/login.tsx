@@ -84,7 +84,7 @@ export default function Login() {
         </CardContent>
         <CardFooter className="flex justify-center border-t p-4 mt-2">
           <p className="text-sm text-muted-foreground">
-            للواجهة التجريبية: استخدم أي بريد وكلمة مرور (Mock)
+            سجّل الدخول ببيانات حسابك
           </p>
         </CardFooter>
       </Card>

@@ -25,28 +25,38 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 
-const navigation = [
-  { name: 'لوحة التحكم', href: '/', icon: LayoutDashboard },
-  { name: 'المنتجات', href: '/products', icon: Package },
-  { name: 'الكتالوج', href: '/catalog', icon: Layers },
-  { name: 'المخازن', href: '/warehouses', icon: Building2 },
-  { name: 'المخزون', href: '/inventory', icon: Warehouse },
-  { name: 'نقاط البيع', href: '/pos-locations', icon: MapPin },
-  { name: 'واجهة الكاشير', href: '/pos', icon: Monitor },
-  { name: 'الفواتير', href: '/invoices', icon: FileText },
-  { name: 'المرتجعات', href: '/returns', icon: Undo2 },
-  { name: 'الشفتات', href: '/shifts', icon: Clock },
-  { name: 'التقارير', href: '/reports', icon: BarChart3 },
-  { name: 'المستخدمين', href: '/users', icon: Users },
-  { name: 'الأدوار', href: '/roles', icon: Shield },
-  { name: 'سجل التدقيق', href: '/audit', icon: History },
-  { name: 'الإعدادات', href: '/settings', icon: Settings },
+const allNavigation = [
+  { name: 'لوحة التحكم', href: '/', icon: LayoutDashboard, cashierOnly: false },
+  { name: 'المنتجات', href: '/products', icon: Package, cashierOnly: false },
+  { name: 'الكتالوج', href: '/catalog', icon: Layers, cashierOnly: false },
+  { name: 'المخازن', href: '/warehouses', icon: Building2, cashierOnly: false },
+  { name: 'المخزون', href: '/inventory', icon: Warehouse, cashierOnly: false },
+  { name: 'نقاط البيع', href: '/pos-locations', icon: MapPin, cashierOnly: false },
+  { name: 'واجهة الكاشير', href: '/pos', icon: Monitor, cashierOnly: false },
+  { name: 'الفواتير', href: '/invoices', icon: FileText, cashierOnly: false },
+  { name: 'المرتجعات', href: '/returns', icon: Undo2, cashierOnly: false },
+  { name: 'الشفتات', href: '/shifts', icon: Clock, cashierOnly: false },
+  { name: 'التقارير', href: '/reports', icon: BarChart3, cashierOnly: false },
+  { name: 'المستخدمين', href: '/users', icon: Users, cashierOnly: false },
+  { name: 'الأدوار', href: '/roles', icon: Shield, cashierOnly: false },
+  { name: 'سجل التدقيق', href: '/audit', icon: History, cashierOnly: false },
+  { name: 'الإعدادات', href: '/settings', icon: Settings, cashierOnly: false },
+];
+
+// Cashiers only see POS-related pages
+const cashierNavigation = [
+  { name: 'واجهة الكاشير', href: '/pos', icon: Monitor, cashierOnly: true },
+  { name: 'الفواتير', href: '/invoices', icon: FileText, cashierOnly: true },
+  { name: 'المرتجعات', href: '/returns', icon: Undo2, cashierOnly: true },
+  { name: 'الشفتات', href: '/shifts', icon: Clock, cashierOnly: true },
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
-  const { logout, user } = useAuth();
+  const { logout, user, isCashier } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const navigation = isCashier ? cashierNavigation : allNavigation;
 
   // Exclude AppLayout on login page and POS page (POS usually needs full screen)
   if (location === '/login') {
